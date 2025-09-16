@@ -4,3 +4,4 @@ PyYAML
 python-dotenv
 requests
 google-cloud-speech
+gunicorn
