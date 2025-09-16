@@ -162,4 +162,7 @@ def serve_ui():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    import os
+    port = int(os.environ.get("PORT", 8000))  # پورت رو از Koyeb بگیره
+    app.run(host="0.0.0.0", port=port, debug=False)
+
