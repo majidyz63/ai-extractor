@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>AI Universal Extractor (Mobile)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <div class="container">
+        <h1>AI Universal Extractor</h1>
+        <form id="extractForm">
+            <label>Model:
+                <select id="modelSelect"></select>
+            </label>
+
+            <label>Prompt Type:
+                <select id="promptSelect"></select>
+            </label>
+
+            <div id="dynamicFields"></div>
+
+            <label>Input:</label>
+            <div class="input-row">
+                <input id="mainInput" name="input" type="text" autocomplete="off"
+                    placeholder="Tap 🎤 or type here..." />
+                <button id="micBtn" type="button" title="Voice-to-Text">🎤</button>
+                <button id="clearBtn" type="button" title="Clear Input">❌</button>
+            </div>
+
+            <label>Language:
+                <select id="langSelect">
+                    <option value="en-US">English (US)</option>
+                    <option value="en-GB">English (UK)</option>
+                    <option value="fa-IR">فارسی</option>
+                    <option value="nl-NL">Nederlands</option>
+                    <option value="fr-FR">Français</option>
+                </select>
+            </label>
+
+            <label>Voice Recognition Engine:
+                <select id="voiceEngine">
+                    <option value="webspeech">Web Speech API</option>
+                    <option value="google">Google Cloud Speech-to-Text</option>
+                    <option value="vosk">Vosk Server</option>
+                    <option value="android">Google SpeechRecognizer (Android)</option>
+                    <option value="whisper">Whisper API (OpenAI)</option>
+                </select>
+            </label>
+
+            <button type="submit" class="btn-submit">Extract</button>
+        </form>
+
+        <div id="outputArea" style="display:none;">
+            <form id="outputForm"></form>
+        </div>
+        <pre id="result"></pre>
+    </div>
+
+    <script src="/static/main.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,10 @@
+name: trading_signal_extractor
+description: Extract trading signals from user input.
+prompt: |
+  Today is {{today}}.
+  User input: "{{input}}"
+  Extract trading signal (symbol, side, entry, stop, targets) as JSON.
+  Respond with JSON only.
+vars:
+  - input
+  - today
