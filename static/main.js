@@ -65,7 +65,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const body = { model, prompt_type, input, vars };
         console.log("📤 Sending body:", body);
 
-        const r = await fetch('/api/extract', {
+        const r = await fetch('https://common-junglefowl-neoprojects-82c5720a.koyeb.app/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
@@ -239,7 +239,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             mediaRecorder.onstop = async () => {
                 clearTimeout(recordTimeout);
                 if (engine === "google" || engine === "vosk" || engine === "whisper") {
-                    await recordAndSend("/api/voice_event", lang);
+                    await recordAndSend("https://common-junglefowl-neoprojects-82c5720a.koyeb.app/", lang);
                 }
             };
             // اگر روی VPS اجرا شدی این خط رو جایگزین کن:
