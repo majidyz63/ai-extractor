@@ -18,7 +18,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 @app.route("/api/models")
 def get_models():
     try:
-        resp = requests.get("http://127.0.0.1:8000/api/active-models", timeout=10)
+        resp = requests.get("https://common-junglefowl-neoprojects-82c5720a.koyeb.app/api/active-models", timeout=10)
         return jsonify(resp.json())
     except Exception as e:
         return jsonify({"error": f"failed to fetch models: {e}", "models": []})
