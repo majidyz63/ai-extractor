@@ -110,7 +110,7 @@ def extract_debug():
         user_input = data.get("input")
         lang = data.get("lang", "en-US")
 
-        # برای تست: اگر چیزی پر نشده بود، خطای واضح بده
+        # بررسی ورودی‌ها
         if not model:
             return jsonify({"error": "❌ No model provided"}), 400
         if not prompt_type:
@@ -118,18 +118,48 @@ def extract_debug():
         if not user_input:
             return jsonify({"error": "❌ No input text provided"}), 400
 
-        # TODO: اینجا باید پردازش واقعی (مثلاً OpenRouter یا Manager) صدا زده بشه
-        # فعلاً خروجی تستی برگردونیم
-        result = f"Simulated extraction for model={model}, prompt={prompt_type}, lang={lang}"
+        # ساخت prompt
+        final_prompt = f"""
+        Extract structured {prompt_type} information from the following text.
+        Always return valid JSON.
+        Input: {user_input}
+        """
+
+        # صدا زدن OpenRouter API
+        headers = {
+            "Authorization": f"Bearer {os.getenv('OPENROUTER_API_KEY')}",
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "model": model,
+            "messages": [
+                {"role": "user", "content": final_prompt}
+            ]
+        }
+
+        resp = requests.post(
+            os.getenv("OPENROUTER_URL", "https://openrouter.ai/api/v1/chat/completions"),
+            headers=headers,
+            json=payload,
+            timeout=60
+        )
+
+        raw = resp.json()
+        print("🤖 Raw Model Response:", raw)
+
+        ai_text = None
+        if "choices" in raw and raw["choices"]:
+            ai_text = raw["choices"][0]["message"]["content"]
 
         return jsonify({
             "model": model,
             "prompt_type": prompt_type,
             "input": user_input,
             "lang": lang,
-            "result": result
+            "raw": raw,
+            "output": ai_text
         })
 
     except Exception as e:
-        # هر خطا رو به صورت متن JSON برگردونیم
-        return jsonify({"error": f"⚠️ Internal error: {str(e)}"}), 500
+        return jsonify({"error": f"⚠️ AI call failed: {str(e)}"}), 500
