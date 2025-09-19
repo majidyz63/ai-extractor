@@ -1,6 +1,7 @@
 import os
 import json
 import requests
+import re
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -26,7 +27,6 @@ def get_models():
             timeout=10
         )
         models = resp.json()
-        # اگه API بیرونی خالی داد یا خراب بود → fallback
         if not models or not isinstance(models, list):
             models = ["mistral/mistral-7b-instruct:free", "meta-llama/llama-3.1-8b-instruct"]
         return jsonify({"models": models})
@@ -47,7 +47,7 @@ PROMPT_TYPES = {
 @app.route("/api/prompts")
 def get_prompts():
     prompts = list(PROMPT_TYPES.keys())
-    if not prompts:  # اگه خالی شد، پیش‌فرض بده
+    if not prompts:
         prompts = ["calendar_event", "task_list", "trading_signal"]
     return jsonify({"prompts": prompts})
 
@@ -90,31 +90,34 @@ def normalize_reminder(rem):
     except:
         return 0
 
+
 # ---------- JSON Safe Parser ----------
 def safe_json_parse(ai_text: str):
-    """پاکسازی و parse امن خروجی مدل AI"""
+    """پاکسازی و parse امن خروجی مدل AI حتی وقتی JSON وسط متن باشه"""
     clean = ai_text.strip()
 
-    # حذف بلاک‌های ```...``` (مثل ```json ... ```)
     if clean.startswith("```"):
         parts = clean.split("```")
         if len(parts) > 1:
             clean = parts[1].strip()
 
-    # حذف پیشوند "json" اگر ابتدای متن باشه
     if clean.lower().startswith("json"):
         clean = clean[4:].strip()
 
-    # تلاش برای parse چندمرحله‌ای
+    match = re.search(r"\{.*\}", clean, re.DOTALL)
+    if match:
+        clean = match.group(0).strip()
+
     try:
         parsed = json.loads(clean)
-        if isinstance(parsed, str):  # اگر escape دوبل باشه
+        if isinstance(parsed, str):
             parsed = json.loads(parsed)
         return parsed
     except Exception as e:
         app.logger.error(f"❌ JSON Parse Error: {e}")
         app.logger.error(f"📝 Clean string was:\n{clean}")
         return {"raw_text": clean}
+
 
 # ---------- Serve UI ----------
 @app.route("/")
@@ -123,9 +126,9 @@ def serve_ui():
 
 
 if __name__ == "__main__":
-    import os
-    port = int(os.environ.get("PORT", 8000))  # پورت رو از Koyeb بگیره
+    port = int(os.environ.get("PORT", 8000))
     app.run(host="0.0.0.0", port=port, debug=False)
+
 
 # ---------- Text Extraction ----------
 @app.route("/api/extract", methods=["POST"])
