@@ -136,6 +136,7 @@ Input: {user_input}
             timeout=60
         )
         raw = resp.json()
+        print("🤖 Raw Model Response:", raw)
 
         ai_text = None
         if isinstance(raw, dict):
@@ -146,27 +147,25 @@ Input: {user_input}
         if not ai_text:
             return jsonify({"error": "No content in response", "raw": raw}), 500
 
-        # 🧹 پاکسازی خروجی
+        # 🧹 پاکسازی خروجی مدل
         clean = ai_text.strip()
         if clean.startswith("```"):
-            clean = clean.split("```")[1]
-            if clean.startswith("json"):
-                clean = clean[4:]
+            parts = clean.split("```")
+            if len(parts) > 1:
+                clean = parts[1]
+            if clean.strip().startswith("json"):
+                clean = clean.strip()[4:]
         clean = clean.strip()
 
-               # 🧾 تلاش برای parse کردن JSON
+        # 🧾 تلاش برای parse کردن JSON
         try:
             parsed = json.loads(clean)
-            if isinstance(parsed, str):  # اگر دوباره استرینگ JSON بود
+            if isinstance(parsed, str):
                 parsed = json.loads(parsed)
         except Exception as e:
-            # 🔎 لاگ خطا برای دیباگ
             print("❌ JSON Parse Error:", e)
             print("📝 Clean string was:\n", clean)
-            return jsonify({
-                "error": f"JSON parse failed: {e}",
-                "raw": clean
-            }), 500
+            return jsonify({"error": f"JSON parse failed: {e}", "raw": clean}), 500
 
         return jsonify({
             "model": model,
@@ -178,5 +177,5 @@ Input: {user_input}
         })
 
     except Exception as e:
-        print("🔥 Unexpected extract error:", e)  # 👈 این هم برای لاگ کلی
+        print("🔥 Unexpected extract error:", e)
         return jsonify({"error": f"extract failed: {e}"}), 500
