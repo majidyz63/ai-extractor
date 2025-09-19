@@ -182,3 +182,35 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))  # پورت رو از Koyeb بگیره
     app.run(host="0.0.0.0", port=port, debug=False)
 
+@app.route("/api/extract", methods=["POST"])
+def extract():
+    try:
+        data = request.json or {}
+        model = data.get("model")
+        prompt_type = data.get("prompt_type")
+        user_input = data.get("input")
+        lang = data.get("lang", "en-US")
+
+        # برای تست: اگر چیزی پر نشده بود، خطای واضح بده
+        if not model:
+            return jsonify({"error": "❌ No model provided"}), 400
+        if not prompt_type:
+            return jsonify({"error": "❌ No prompt_type provided"}), 400
+        if not user_input:
+            return jsonify({"error": "❌ No input text provided"}), 400
+
+        # TODO: اینجا باید پردازش واقعی (مثلاً OpenRouter یا Manager) صدا زده بشه
+        # فعلاً خروجی تستی برگردونیم
+        result = f"Simulated extraction for model={model}, prompt={prompt_type}, lang={lang}"
+
+        return jsonify({
+            "model": model,
+            "prompt_type": prompt_type,
+            "input": user_input,
+            "lang": lang,
+            "result": result
+        })
+
+    except Exception as e:
+        # هر خطا رو به صورت متن JSON برگردونیم
+        return jsonify({"error": f"⚠️ Internal error: {str(e)}"}), 500
