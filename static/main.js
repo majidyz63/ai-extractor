@@ -52,40 +52,43 @@ document.addEventListener('DOMContentLoaded', async () => {
     await renderDynamicFields();
     document.getElementById('promptSelect').onchange = renderDynamicFields;
 
-    document.getElementById('extractForm').onsubmit = async (e) => {
+    document.getElementById("extractForm").addEventListener("submit", async (e) => {
         e.preventDefault();
-        const model = document.getElementById('modelSelect').value;
-        const prompt_type = document.getElementById('promptSelect').value;
-        const input = document.getElementById('mainInput').value;
 
-        const formData = new FormData(e.target);
-        let vars = {};
-        for (const [k, v] of formData.entries()) vars[k] = v;
+        const body = {
+            model: document.getElementById("modelSelect").value,
+            prompt_type: document.getElementById("promptSelect").value,
+            input: document.getElementById("mainInput").value,
+            lang: document.getElementById("langSelect").value
+        };
 
-        const body = { model, prompt_type, input, vars };
         console.log("📤 Sending body:", body);
 
-        const r = await fetch("https://common-junglefowl-neoprojects-82c5720a.koyeb.app/api/extract", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body)
-        });
-
-        let text = await r.text();
-
-        let match = text.match(/```json([\s\S]*?)```/);
-        let clean = match ? match[1].trim() : text;
-
         try {
-            let jsonObj = JSON.parse(clean);
-            if (typeof jsonObj === "string") jsonObj = JSON.parse(jsonObj);
-            document.getElementById('result').textContent = JSON.stringify(jsonObj, null, 2);
-            showOutput(jsonObj);
-        } catch (e) {
-            document.getElementById('result').textContent = clean;
-            document.getElementById("outputArea").style.display = "none";
+            const r = await fetch("/api/extract", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body)
+            });
+
+            if (!r.ok) {
+                throw new Error(`❌ Server error: ${r.status}`);
+            }
+
+            const data = await r.json();
+            // 👇 نمایش نتیجه در UI
+            document.getElementById("result").textContent =
+                JSON.stringify(data, null, 2);
+            document.getElementById("outputArea").style.display = "block";
+        } catch (err) {
+            // 👇 حتی اگر fetch شکست بخوره، خطا در UI نمایش داده میشه
+            document.getElementById("result").textContent =
+                "⚠️ Error: " + err.message;
+            document.getElementById("outputArea").style.display = "block";
+            console.error("Extract error:", err);
         }
-    };
+    });
+
 
     const micBtn = document.getElementById('micBtn');
     const mainInput = document.getElementById('mainInput');
