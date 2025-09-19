@@ -183,7 +183,7 @@ if __name__ == "__main__":
     app.run(host="0.0.0.0", port=port, debug=False)
 
 @app.route("/api/extract", methods=["POST"])
-def extract():
+def extract_debug():
     try:
         data = request.json or {}
         model = data.get("model")
