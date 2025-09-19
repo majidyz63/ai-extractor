@@ -22,10 +22,12 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 @app.route("/api/models")
 def get_models():
     try:
-        resp = requests.get(
-            "https://common-junglefowl-neoprojects-82c5720a.koyeb.app/api/active-models",
-            timeout=10
+        resp = requests.post(
+           "https://common-junglefowl-neoprojects-82c5720a.koyeb.app/api/complete",
+           json=payload,
+           timeout=60
         )
+
         models = resp.json()
         if not models or not isinstance(models, list):
             models = ["mistral/mistral-7b-instruct:free", "meta-llama/llama-3.1-8b-instruct"]
