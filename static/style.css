@@ -67,3 +67,17 @@ button {
     background: #ff4d4d;
     color: #fff;
 }
+#result {
+    white-space: pre-wrap;
+    /* بشکنه خط‌ها */
+    word-wrap: break-word;
+    /* نشکنه از کادر بیرون */
+    max-width: 100%;
+    /* همیشه داخل کادر بمونه */
+    overflow-x: auto;
+    /* اسکرول افقی اگه خیلی بزرگ بود */
+    background: #f9f9f9;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+}

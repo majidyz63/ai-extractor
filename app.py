@@ -101,36 +101,28 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))  # پورت رو از Koyeb بگیره
     app.run(host="0.0.0.0", port=port, debug=False)
 
+# ---------- Text Extraction ----------
 @app.route("/api/extract", methods=["POST"])
-def extract_debug():
+def extract():
+    data = request.json or {}
+    model = data.get("model")
+    user_input = data.get("input", "")
+    prompt_type = data.get("prompt_type", "calendar_event")
+    lang = data.get("lang", "en-US")
+
+    if not user_input:
+        return jsonify({"error": "No input provided"}), 400
+
+    today_str = datetime.now().strftime("%Y-%m-%d")
+
+    final_prompt = f"""
+Extract structured {prompt_type} information from the following text.
+Always return valid JSON.
+Convert relative dates to absolute (today is {today_str}).
+Input: {user_input}
+"""
+
     try:
-        data = request.json or {}
-        model = data.get("model")
-        prompt_type = data.get("prompt_type")
-        user_input = data.get("input")
-        lang = data.get("lang", "en-US")
-
-        # بررسی ورودی‌ها
-        if not model:
-            return jsonify({"error": "❌ No model provided"}), 400
-        if not prompt_type:
-            return jsonify({"error": "❌ No prompt_type provided"}), 400
-        if not user_input:
-            return jsonify({"error": "❌ No input text provided"}), 400
-
-        # ساخت prompt
-        final_prompt = f"""
-        Extract structured {prompt_type} information from the following text.
-        Always return valid JSON.
-        Input: {user_input}
-        """
-
-        # صدا زدن OpenRouter API
-        headers = {
-            "Authorization": f"Bearer {os.getenv('OPENROUTER_API_KEY')}",
-            "Content-Type": "application/json"
-        }
-
         payload = {
             "model": model,
             "messages": [
@@ -139,27 +131,45 @@ def extract_debug():
         }
 
         resp = requests.post(
-            os.getenv("OPENROUTER_URL", "https://openrouter.ai/api/v1/chat/completions"),
-            headers=headers,
+            "http://127.0.0.1:8000/api/complete",
             json=payload,
             timeout=60
         )
-
         raw = resp.json()
-        print("🤖 Raw Model Response:", raw)
 
         ai_text = None
-        if "choices" in raw and raw["choices"]:
-            ai_text = raw["choices"][0]["message"]["content"]
+        if isinstance(raw, dict):
+            ai_text = raw.get("output") or raw.get("content")
+            if not ai_text and "choices" in raw:
+                ai_text = raw["choices"][0]["message"]["content"]
+
+        if not ai_text:
+            return jsonify({"error": "No content in response", "raw": raw}), 500
+
+        # 🧹 پاکسازی خروجی
+        clean = ai_text.strip()
+        if clean.startswith("```"):
+            clean = clean.split("```")[1]
+            if clean.startswith("json"):
+                clean = clean[4:]
+        clean = clean.strip()
+
+        # 🧾 تلاش برای parse کردن JSON
+        try:
+            parsed = json.loads(clean)
+            if isinstance(parsed, str):  # اگر دوباره استرینگ JSON بود
+                parsed = json.loads(parsed)
+        except Exception as e:
+            return jsonify({"error": f"JSON parse failed: {e}", "raw": clean}), 500
 
         return jsonify({
             "model": model,
             "prompt_type": prompt_type,
             "input": user_input,
             "lang": lang,
-            "raw": raw,
-            "output": ai_text
+            "output": parsed,
+            "raw": raw
         })
 
     except Exception as e:
-        return jsonify({"error": f"⚠️ AI call failed: {str(e)}"}), 500
+        return jsonify({"error": f"extract failed: {e}"}), 500
