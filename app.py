@@ -131,7 +131,7 @@ Input: {user_input}
         }
 
         resp = requests.post(
-            "http://127.0.0.1:8000/api/complete",
+            "https://common-junglefowl-neoprojects-82c5720a.koyeb.app/",
             json=payload,
             timeout=60
         )
