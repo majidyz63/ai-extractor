@@ -90,6 +90,32 @@ def normalize_reminder(rem):
     except:
         return 0
 
+# ---------- JSON Safe Parser ----------
+def safe_json_parse(ai_text: str):
+    """پاکسازی و parse امن خروجی مدل AI"""
+    clean = ai_text.strip()
+
+    # حذف بلاک‌های ```...``` (مثل ```json ... ```)
+    if clean.startswith("```"):
+        parts = clean.split("```")
+        if len(parts) > 1:
+            clean = parts[1].strip()
+
+    # حذف پیشوند "json" اگر ابتدای متن باشه
+    if clean.lower().startswith("json"):
+        clean = clean[4:].strip()
+
+    # تلاش برای parse چندمرحله‌ای
+    try:
+        parsed = json.loads(clean)
+        if isinstance(parsed, str):  # اگر escape دوبل باشه
+            parsed = json.loads(parsed)
+        return parsed
+    except Exception as e:
+        app.logger.error(f"❌ JSON Parse Error: {e}")
+        app.logger.error(f"📝 Clean string was:\n{clean}")
+        return {"raw_text": clean}
+
 # ---------- Serve UI ----------
 @app.route("/")
 def serve_ui():
@@ -147,18 +173,8 @@ Input: {user_input}
         if not ai_text:
             return jsonify({"error": "No content in response", "raw": raw}), 500
 
-               # 🧹 پاکسازی خروجی مدل (ساده و مطمئن)
-        clean = ai_text.replace("```json", "").replace("```", "").strip()
-
-        # 🧾 تلاش برای parse کردن JSON
-        try:
-            parsed = json.loads(clean)
-            if isinstance(parsed, str):
-                parsed = json.loads(parsed)
-        except Exception as e:
-            app.logger.error(f"❌ JSON Parse Error: {e}")
-            app.logger.error(f"📝 Clean string was:\n{clean}")
-            return jsonify({"error": f"JSON parse failed: {e}", "raw": clean}), 500
+        # 🧹 پاکسازی و parse امن
+        parsed = safe_json_parse(ai_text)
 
         return jsonify({
             "model": model,
