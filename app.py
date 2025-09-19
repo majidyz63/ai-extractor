@@ -14,14 +14,23 @@ CORS(app)
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# ---------- Models ----------
 @app.route("/api/models")
 def get_models():
     try:
-        resp = requests.get("https://common-junglefowl-neoprojects-82c5720a.koyeb.app/api/active-models", timeout=10)
-        return jsonify(resp.json())
+        resp = requests.get(
+            "https://common-junglefowl-neoprojects-82c5720a.koyeb.app/api/active-models",
+            timeout=10
+        )
+        models = resp.json()
+        # اگه API بیرونی خالی داد یا خراب بود → fallback
+        if not models or not isinstance(models, list):
+            models = ["mistral/mistral-7b-instruct:free", "meta-llama/llama-3.1-8b-instruct"]
+        return jsonify({"models": models})
     except Exception as e:
-        return jsonify({"error": f"failed to fetch models: {e}", "models": []})
+        return jsonify({
+            "error": f"failed to fetch models: {e}",
+            "models": ["mistral/mistral-7b-instruct:free", "meta-llama/llama-3.1-8b-instruct"]
+        })
 
 
 # ---------- Prompts ----------
@@ -33,7 +42,10 @@ PROMPT_TYPES = {
 
 @app.route("/api/prompts")
 def get_prompts():
-    return jsonify({"prompts": list(PROMPT_TYPES.keys())})
+    prompts = list(PROMPT_TYPES.keys())
+    if not prompts:  # اگه خالی شد، پیش‌فرض بده
+        prompts = ["calendar_event", "task_list", "trading_signal"]
+    return jsonify({"prompts": prompts})
 
 
 # ---------- Prompt Variables ----------
