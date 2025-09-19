@@ -165,7 +165,18 @@ Input: {user_input}
             json=payload,
             timeout=60
         )
-        raw = resp.json()
+
+        # --- چک کنیم که خروجی واقعاً JSON هست ---
+        try:
+            raw = resp.json()
+        except Exception:
+            app.logger.error(f"❌ Non-JSON response from model API: {resp.text}")
+            return jsonify({
+                "error": "Model API did not return JSON",
+                "status_code": resp.status_code,
+                "raw": resp.text
+            }), 200
+
         print("🤖 Raw Model Response:", raw)
 
         ai_text = None
