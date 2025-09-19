@@ -147,15 +147,8 @@ Input: {user_input}
         if not ai_text:
             return jsonify({"error": "No content in response", "raw": raw}), 500
 
-        # 🧹 پاکسازی خروجی مدل
-        clean = ai_text.strip()
-        if clean.startswith("```"):
-            parts = clean.split("```")
-            if len(parts) > 1:
-                clean = parts[1]
-            if clean.strip().startswith("json"):
-                clean = clean.strip()[4:]
-        clean = clean.strip()
+               # 🧹 پاکسازی خروجی مدل (ساده و مطمئن)
+        clean = ai_text.replace("```json", "").replace("```", "").strip()
 
         # 🧾 تلاش برای parse کردن JSON
         try:
@@ -163,8 +156,8 @@ Input: {user_input}
             if isinstance(parsed, str):
                 parsed = json.loads(parsed)
         except Exception as e:
-            print("❌ JSON Parse Error:", e)
-            print("📝 Clean string was:\n", clean)
+            app.logger.error(f"❌ JSON Parse Error: {e}")
+            app.logger.error(f"📝 Clean string was:\n{clean}")
             return jsonify({"error": f"JSON parse failed: {e}", "raw": clean}), 500
 
         return jsonify({
@@ -177,5 +170,5 @@ Input: {user_input}
         })
 
     except Exception as e:
-        print("🔥 Unexpected extract error:", e)
+        app.logger.error(f"🔥 Unexpected extract error: {e}")
         return jsonify({"error": f"extract failed: {e}"}), 500
