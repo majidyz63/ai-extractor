@@ -154,13 +154,19 @@ Input: {user_input}
                 clean = clean[4:]
         clean = clean.strip()
 
-        # 🧾 تلاش برای parse کردن JSON
+               # 🧾 تلاش برای parse کردن JSON
         try:
             parsed = json.loads(clean)
             if isinstance(parsed, str):  # اگر دوباره استرینگ JSON بود
                 parsed = json.loads(parsed)
         except Exception as e:
-            return jsonify({"error": f"JSON parse failed: {e}", "raw": clean}), 500
+            # 🔎 لاگ خطا برای دیباگ
+            print("❌ JSON Parse Error:", e)
+            print("📝 Clean string was:\n", clean)
+            return jsonify({
+                "error": f"JSON parse failed: {e}",
+                "raw": clean
+            }), 500
 
         return jsonify({
             "model": model,
@@ -172,4 +178,5 @@ Input: {user_input}
         })
 
     except Exception as e:
+        print("🔥 Unexpected extract error:", e)  # 👈 این هم برای لاگ کلی
         return jsonify({"error": f"extract failed: {e}"}), 500
