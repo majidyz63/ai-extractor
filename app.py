@@ -308,13 +308,13 @@ Input: {user_input}
 
     try:
         resp = requests.post(
-            "http://localhost:8000/api/complete",  # صدا زدن مستقیم همین سرویس
-            json=payload,
-            timeout=60
+           request.host_url.rstrip("/") + "/api/complete",
+           json=payload,
+           timeout=60
         )
         raw = resp.json()
 
-        ai_text = None
+        ai_text = None 
         if isinstance(raw, dict):
             ai_text = raw.get("output") or raw.get("content")
             if not ai_text and "choices" in raw:
