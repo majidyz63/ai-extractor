@@ -9,7 +9,11 @@ from datetime import datetime
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={
+    r"/*": {
+        "origins": "https://shared-deborah-neoprojects-65e1dc36.koyeb.app"
+    }
+})
 
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
