@@ -93,7 +93,7 @@ def normalize_reminder(rem):
 
 # ---------- JSON Safe Parser ----------
 def safe_json_parse(ai_text: str):
-    """پاکسازی و parse امن خروجی مدل AI حتی وقتی JSON وسط متن باشه"""
+    """پاکسازی و parse امن خروجی مدل AI حتی وقتی JSON ناقص باشه"""
     clean = ai_text.strip()
 
     if clean.startswith("```"):
@@ -116,6 +116,7 @@ def safe_json_parse(ai_text: str):
     except Exception as e:
         app.logger.error(f"❌ JSON Parse Error: {e}")
         app.logger.error(f"📝 Clean string was:\n{clean}")
+        # به جای 500 متن خام رو برگردون
         return {"raw_text": clean}
 
 
@@ -174,7 +175,7 @@ Input: {user_input}
                 ai_text = raw["choices"][0]["message"]["content"]
 
         if not ai_text:
-            return jsonify({"error": "No content in response", "raw": raw}), 500
+            return jsonify({"error": "No content in response", "raw": raw}), 200
 
         # 🧹 پاکسازی و parse امن
         parsed = safe_json_parse(ai_text)
@@ -190,4 +191,5 @@ Input: {user_input}
 
     except Exception as e:
         app.logger.error(f"🔥 Unexpected extract error: {e}")
-        return jsonify({"error": f"extract failed: {e}"}), 500
+        # به جای 500، پیام خطا برگردونیم
+        return jsonify({"error": f"extract failed: {e}"}), 200
