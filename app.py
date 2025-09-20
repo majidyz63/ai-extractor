@@ -270,14 +270,15 @@ Input: {user_input}
                 {"role": "user", "content": final_prompt}
             ]
         }
-        # ارسال به API داخلی بجای OpenRouter مستقیم
-        resp = requests.post(
-            "http://127.0.0.1:8000/api/complete",  # یا اگر در سرور هستی، آدرس لوکال سرور خودت را بگذار
-            json=payload,
-            timeout=60
-        )
-        raw = resp.json()
-        print("🤖 Raw Model Response:", raw)
+        # مستقیماً تابع api_complete را صدا بزن
+        with app.test_request_context('/api/complete', method='POST', json=payload):
+            resp = api_complete()
+            # Flask Response object → get_json
+            if hasattr(resp, 'get_json'):
+                raw = resp.get_json()
+            else:
+                raw = resp
+
         ai_text = None
         if isinstance(raw, dict):
             ai_text = raw.get("output") or raw.get("content")
@@ -305,6 +306,7 @@ Input: {user_input}
     except Exception as e:
         app.logger.error(f"🔥 Unexpected extract error: {e}")
         return jsonify({"error": f"extract failed: {e}"}), 500
+
 
 # ================ RUN APP ================
 if __name__ == "__main__":
