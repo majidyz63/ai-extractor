@@ -38,6 +38,7 @@ async function renderDynamicFields() {
 // === تابع نمایش خلاصه خروجی مدل ===
 function renderExtractorOutput(data) {
     let ce = data.output?.calendar_event;
+    console.log("OUTPUT: ", ce);
     let message = "";
     if (!ce) {
         document.getElementById('result').innerHTML = "<span style='color:#d00'>❌ خروجی استخراج یافت نشد.</span>";
