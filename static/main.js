@@ -35,22 +35,37 @@ async function renderDynamicFields() {
         div.innerHTML += `<label>${f}:<input name="${f}" /></label>`;
     });
 }
-
 // === تابع نمایش خلاصه خروجی مدل ===
 function renderExtractorOutput(data) {
-    const resultDiv = document.getElementById('result');
-    if (data.output && data.output.calendar_event) {
-        const ev = data.output.calendar_event;
-        resultDiv.innerHTML = `
-            <div style="border:1px solid #eee; border-radius:8px; background:#f9f9f9; padding:12px; max-width:400px;">
-                <b>${ev.summary || "Event"}</b><br>
-                <small>📅 ${ev.start?.date || "-"} ${ev.start?.time || ""} تا ${ev.end?.date || "-"} ${ev.end?.time || ""}</small><br>
-                <small>📍 ${ev.location || "—"}</small>
-            </div>
-        `;
-    } else {
-        resultDiv.innerHTML = "<span style='color:#c00'>❌ No event extracted.</span>";
+    let ce = data.output?.calendar_event;
+    let message = "";
+    if (!ce) {
+        document.getElementById('result').innerHTML = "<span style='color:#d00'>❌ خروجی استخراج یافت نشد.</span>";
+        return;
     }
+    let missing = [];
+    if (!ce.summary) missing.push("عنوان");
+    if (!ce.start?.date) missing.push("تاریخ شروع");
+    if (!ce.start?.time) missing.push("ساعت شروع");
+    if (!ce.end?.date) missing.push("تاریخ پایان");
+    if (!ce.end?.time) missing.push("ساعت پایان");
+    if (!ce.location) missing.push("مکان");
+
+    if (missing.length > 0) {
+        message += `<div style="color:#b63;background:#fff4e6;border-radius:6px;padding:8px 10px;margin-bottom:7px;">
+        ⚠️ بعضی قسمت‌ها ناقصند: <b>${missing.join("، ")}</b><br>
+        لطفاً جمله را دقیق‌تر وارد کنید یا مقدار را دستی کامل نمایید.
+        </div>`;
+    }
+
+    message += `<div style="border:1px solid #d0d0d0;border-radius:8px;padding:10px;line-height:2;">
+        <b>📄 ${ce.summary || "<i>بدون عنوان</i>"}</b><br>
+        📅 ${ce.start?.date || "?"} ${ce.start?.time || ""} 
+        ${ce.end?.date || ""} ${ce.end?.time ? "تا " + ce.end.time : ""} <br>
+        📍 ${ce.location || "<i>بدون مکان</i>"}
+    </div>`;
+
+    document.getElementById('result').innerHTML = message;
 }
 
 function showOutput(json) {
