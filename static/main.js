@@ -176,6 +176,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             const r = await fetch(endpoint, { method: "POST", body: formData });
             const data = await r.json();
+            alert("Server response: " + JSON.stringify(data));
+            console.log("SERVER RESPONSE:", data);
 
             if (data.title) {
                 mainInput.value = `${data.title} ${data.date} ${data.time} ${data.location}`;
@@ -254,12 +256,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             chunks = [];
 
             mediaRecorder.ondataavailable = e => chunks.push(e.data);
+
             mediaRecorder.onstop = async () => {
+                alert("onstop called! Chunks: " + chunks.length);
+                console.log("Chunks:", chunks);
+
                 clearTimeout(recordTimeout);
                 if (engine === "google" || engine === "vosk" || engine === "whisper") {
-                    await recordAndSend("https://common-junglefowl-neoprojects-82c5720a.koyeb.app/api/extract", lang);
+                    try {
+                        await recordAndSend("https://common-junglefowl-neoprojects-82c5720a.koyeb.app/api/extract", lang);
+                    } catch (err) {
+                        alert("recordAndSend error: " + err);
+                    }
                 }
             };
+
 
             mediaRecorder.start();
             micBtn.textContent = "⏹️ Stop";
