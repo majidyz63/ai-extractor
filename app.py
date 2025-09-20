@@ -21,21 +21,20 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 # ============= MAIN EXTRACTOR ROUTES (دست نخورده) =============
 @app.route("/api/models")
 def get_models():
-    try:
-        resp = requests.get(
-            "https://common-junglefowl-neoprojects-82c5720a.koyeb.app/api/active-models",
-            timeout=10
-        )
-        models = resp.json()
-        # اگه API بیرونی خالی داد یا خراب بود → fallback
-        if not models or not isinstance(models, list):
-            models = ["mistral/mistral-7b-instruct:free", "meta-llama/llama-3.1-8b-instruct"]
-        return jsonify({"models": models})
-    except Exception as e:
-        return jsonify({
-            "error": f"failed to fetch models: {e}",
-            "models": ["mistral/mistral-7b-instruct:free", "meta-llama/llama-3.1-8b-instruct"]
-        })
+    MODELS_FILE = "models.json"
+    import os, json
+    if not os.path.exists(MODELS_FILE):
+        return jsonify({"models": []})
+    with open(MODELS_FILE, "r", encoding="utf-8") as f:
+        try:
+            models = json.load(f)
+            if isinstance(models, list):
+                active_models = [m["model"] for m in models if m.get("active")]
+                return jsonify({"models": active_models})
+        except Exception as e:
+            return jsonify({"error": f"failed to parse models.json: {e}", "models": []})
+    return jsonify({"models": []})
+
 
 PROMPT_TYPES = {
     "calendar_event": "Extract calendar event details",
