@@ -1,0 +1,25 @@
+name: calendar_event_extractor
+description: Extract structured calendar event(s) from user input.
+prompt: |
+  Today is {{today}}.
+  User input: "{{input}}"
+  Extract calendar event details as JSON with the following keys:
+    - summary: Short title for the event
+    - start: { "date": "YYYY-MM-DD", "time": "HH:MM" }
+    - end: { "date": "YYYY-MM-DD", "time": "HH:MM" }
+    - location: Place of the event (if any)
+    - description: Any extra notes (if any)
+  If any information is missing in the input, do your best to infer it, or leave it as null.
+  Respond with JSON only. Example:
+  {
+    "calendar_event": {
+      "summary": "Doctor appointment with Dr. Smith",
+      "start": { "date": "2025-09-21", "time": "16:00" },
+      "end": { "date": "2025-09-21", "time": "17:00" },
+      "location": "Central Clinic",
+      "description": null
+    }
+  }
+vars:
+  - input
+  - today

@@ -1,0 +1,25 @@
+name: calendar_event_extractor_nl
+description: Extraheer gestructureerde agenda-items uit gebruikersinput.
+prompt: |
+  Vandaag is {{today}}.
+  Gebruikersinvoer: "{{input}}"
+  Extraheer de details als JSON met de volgende sleutels:
+    - summary: Korte titel van het evenement
+    - start: { "date": "YYYY-MM-DD", "time": "HH:MM" }
+    - end: { "date": "YYYY-MM-DD", "time": "HH:MM" }
+    - location: Plaats van het evenement (indien aanwezig)
+    - description: Extra notities (indien aanwezig)
+  Vul ontbrekende informatie zo goed mogelijk aan of laat het op null.
+  Geef alleen de JSON-uitvoer terug. Voorbeeld:
+  {
+    "calendar_event": {
+      "summary": "Afspraak met dokter Jansen",
+      "start": { "date": "2025-09-21", "time": "16:00" },
+      "end": { "date": "2025-09-21", "time": "17:00" },
+      "location": "Centraal Ziekenhuis",
+      "description": null
+    }
+  }
+vars:
+  - input
+  - today
