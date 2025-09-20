@@ -5,6 +5,7 @@ from flask import Flask, request, jsonify, render_template, render_template_stri
 from flask_cors import CORS
 from dotenv import load_dotenv
 from datetime import datetime
+from utils.prompt_engine import build_prompt_from_yaml
 
 load_dotenv()
 
@@ -17,6 +18,13 @@ CORS(app, resources={
 
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+PROMPT_MAP = {
+    "en-US": "calendar_en.yaml",
+    "fa-IR": "calendar_fa.yaml",
+    "nl-NL": "calendar_nl.yaml",
+    "fr-FR": "calendar_fr.yaml"
+}
+DEFAULT_PROMPT_FILE = "calendar_nl.yaml"  # پیش‌فرض هلندی
 
 # ============= MAIN EXTRACTOR ROUTES (دست نخورده) =============
 @app.route("/api/models")
@@ -247,67 +255,68 @@ def api_complete():
 # =============== تغییر کوچک در /api/extract (فقط فوروارد) ==============
 @app.route("/api/extract", methods=["POST"])
 def extract():
-    data = request.json or {}
-    model = data.get("model")
-    user_input = data.get("input", "")
-    prompt_type = data.get("prompt_type", "calendar_event")
-    lang = data.get("lang", "en-US")
-
-    if not user_input:
-        return jsonify({"error": "No input provided"}), 400
-
-    today_str = datetime.now().strftime("%Y-%m-%d")
-    final_prompt = f"""
-Extract structured {prompt_type} information from the following text.
-Always return valid JSON.
-Convert relative dates to absolute (today is {today_str}).
-Input: {user_input}
-"""
-
     try:
+        data = request.get_json(force=True) or {}
+        model = data.get("model")
+        user_input = data.get("input", "")
+        lang = data.get("lang", "nl-NL")
+        prompt_type = data.get("prompt_type", "calendar_event")
+
+        if not user_input:
+            return jsonify({"error": "No input provided"}), 400
+
+        prompt_file = PROMPT_MAP.get(lang, DEFAULT_PROMPT_FILE)
+        prompt_path = os.path.join("prompts", prompt_file)
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        user_vars = {"input": user_input}
+        sys_vars = {"today": today_str}
+
+        final_prompt = build_prompt_from_yaml(prompt_path, user_vars, sys_vars)
+
         payload = {
             "model": model,
             "messages": [
                 {"role": "user", "content": final_prompt}
             ]
         }
-        # مستقیماً تابع api_complete را صدا بزن
-        with app.test_request_context('/api/complete', method='POST', json=payload):
-            resp = api_complete()
-            # Flask Response object → get_json
-            if hasattr(resp, 'get_json'):
-                raw = resp.get_json()
-            else:
-                raw = resp
 
-        ai_text = None
-        if isinstance(raw, dict):
-            ai_text = raw.get("output") or raw.get("content")
-            if not ai_text and "choices" in raw:
-                ai_text = raw["choices"][0]["message"]["content"]
-        if not ai_text:
-            return jsonify({"error": "No content in response", "raw": raw}), 500
-        clean = ai_text.replace("```json", "").replace("```", "").strip()
+        # تنظیم کلید OpenRouter خودت!
+        OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+        HEADERS = {
+            "Authorization": f"Bearer {os.environ.get('OPENROUTER_API_KEY')}",
+            "Content-Type": "application/json"
+        }
+
+        resp = requests.post(OPENROUTER_API_URL, headers=HEADERS, json=payload, timeout=40)
+        if resp.status_code != 200:
+            return jsonify({"error": f"OpenRouter error {resp.status_code}", "details": resp.text}), 500
+
+        ai_result = resp.json()
+        output_text = ai_result["choices"][0]["message"]["content"]
+
+        # تلاش برای تبدیل به JSON
+        output_json = None
         try:
-            parsed = json.loads(clean)
-            if isinstance(parsed, str):
-                parsed = json.loads(parsed)
+            if output_text.strip().startswith("```"):
+                output_text = output_text.split("```")[1]
+            output_json = json.loads(output_text)
         except Exception as e:
-            app.logger.error(f"❌ JSON Parse Error: {e}")
-            app.logger.error(f"📝 Clean string was:\n{clean}")
-            return jsonify({"error": f"JSON parse failed: {e}", "raw": clean}), 500
+            return jsonify({
+                "error": f"JSON parse failed: {e}",
+                "raw": output_text
+            }), 500
+
         return jsonify({
             "model": model,
-            "prompt_type": prompt_type,
-            "input": user_input,
             "lang": lang,
-            "output": parsed,
-            "raw": raw
+            "input": user_input,
+            "output": output_json,
+            "prompt_type": prompt_type,
+            "raw": ai_result
         })
-    except Exception as e:
-        app.logger.error(f"🔥 Unexpected extract error: {e}")
-        return jsonify({"error": f"extract failed: {e}"}), 500
 
+    except Exception as e:
+        return jsonify({"error": f"Server error: {e}"}), 500
 
 # ================ RUN APP ================
 if __name__ == "__main__":
