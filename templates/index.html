@@ -11,6 +11,10 @@
 <body>
     <div class="container">
         <h1>AI Universal Extractor</h1>
+        <a href="/manager"
+            style="float:right;background:#009688;color:#fff;padding:6px 14px;border-radius:7px;text-decoration:none;font-size:.95em;margin-bottom:12px;">🛠️
+            Manage Models</a>
+
         <form id="extractForm">
             <label>Model:
                 <select id="modelSelect"></select>
@@ -53,13 +57,10 @@
             <button type="submit" class="btn-submit">Extract</button>
         </form>
 
-        <div id="outputArea" style="display:none;">
-            <form id="outputForm"></form>
+        <div id="result"></div>
         </div>
-        <pre id="result"></pre>
-    </div>
-
-    <script src="/static/main.js"></script>
-</body>
-
-</html>
+        
+        <script src="/static/main.js"></script>
+        </body>
+        
+        </html>

@@ -134,6 +134,7 @@ def manager_ui():
     <body>
     <div class="container">
         <h2>API Model Manager</h2>
+        <a href="https://openrouter.ai/models" target="_blank" style="display:inline-block;margin-bottom:16px;padding:6px 14px;border-radius:6px;background:#2269d6;color:#fff;text-decoration:none;font-size:.96em;">🌐 OpenRouter Models</a>                
         <form id="addForm">
             <input type="text" id="model" placeholder="model/name:version" required>
             <button type="submit" class="btn">Add</button>

@@ -36,6 +36,23 @@ async function renderDynamicFields() {
     });
 }
 
+// === تابع نمایش خلاصه خروجی مدل ===
+function renderExtractorOutput(data) {
+    const resultDiv = document.getElementById('result');
+    if (data.output && data.output.calendar_event) {
+        const ev = data.output.calendar_event;
+        resultDiv.innerHTML = `
+            <div style="border:1px solid #eee; border-radius:8px; background:#f9f9f9; padding:12px; max-width:400px;">
+                <b>${ev.summary || "Event"}</b><br>
+                <small>📅 ${ev.start?.date || "-"} ${ev.start?.time || ""} تا ${ev.end?.date || "-"} ${ev.end?.time || ""}</small><br>
+                <small>📍 ${ev.location || "—"}</small>
+            </div>
+        `;
+    } else {
+        resultDiv.innerHTML = "<span style='color:#c00'>❌ No event extracted.</span>";
+    }
+}
+
 function showOutput(json) {
     const outputArea = document.getElementById("outputArea");
     const outputForm = document.getElementById("outputForm");
@@ -76,19 +93,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             const data = await r.json();
-            // 👇 نمایش نتیجه در UI
-            document.getElementById("result").textContent =
-                JSON.stringify(data, null, 2);
+            // 👇 نمایش خلاصه خروجی مدل
+            renderExtractorOutput(data);
             document.getElementById("outputArea").style.display = "block";
         } catch (err) {
-            // 👇 حتی اگر fetch شکست بخوره، خطا در UI نمایش داده میشه
+            // 👇 اگر fetch شکست بخوره، خطا نمایش داده میشه
             document.getElementById("result").textContent =
                 "⚠️ Error: " + err.message;
             document.getElementById("outputArea").style.display = "block";
             console.error("Extract error:", err);
         }
     });
-
 
     const micBtn = document.getElementById('micBtn');
     const mainInput = document.getElementById('mainInput');
@@ -111,9 +126,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const rec = new webkitSpeechRecognition();
         rec.lang = lang;
-        rec.interimResults = true;   // نتایج لحظه‌ای
+        rec.interimResults = true;
         rec.maxAlternatives = 1;
-        rec.continuous = true;       // 🟢 مداوم
+        rec.continuous = true;
 
         let finalTranscript = "";
 
@@ -164,8 +179,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (data.title) {
                 mainInput.value = `${data.title} ${data.date} ${data.time} ${data.location}`;
-                document.getElementById('result').textContent = JSON.stringify(data, null, 2);
-                showOutput(data);
+                // 👇 نمایش خلاصه خروجی مدل
+                renderExtractorOutput(data);
+                showOutput(data); // اگر خروجی اضافی نمی‌خواهی، این خط را حذف کن
             } else if (data.text) {
                 mainInput.value = data.text;
                 document.getElementById('result').textContent = data.text;
@@ -244,9 +260,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     await recordAndSend("https://common-junglefowl-neoprojects-82c5720a.koyeb.app/api/extract", lang);
                 }
             };
-
-            // اگر روی VPS اجرا شدی این خط رو جایگزین کن:
-            // await recordAndSend("https://your-domain.com/api/voice_event", lang);
 
             mediaRecorder.start();
             micBtn.textContent = "⏹️ Stop";
