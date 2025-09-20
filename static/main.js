@@ -59,26 +59,30 @@ function renderExtractorOutput(data) {
     }
 
     // انتخاب واژه مناسب برای بازه زمانی براساس زبان کاربر
+    // انتخاب واژه مناسب برای بازه زمانی بر اساس زبان
     let lang = document.getElementById("langSelect").value;
     let rangeWord = "to";
     if (lang === "fa-IR") rangeWord = "تا";
     else if (lang === "nl-NL") rangeWord = "tot";
     else if (lang === "fr-FR") rangeWord = "à";
 
-    // اگر تاریخ شروع و پایان یکی بود، فقط بازه‌ی ساعتی نشون بده
+    // اگر تاریخ شروع و پایان یکی باشه:
     let timeLine = "";
     if (ce.start?.date && ce.end?.date && ce.start.date === ce.end.date) {
+        // 2025-09-22 10:00 تا 11:00
         timeLine = `${ce.start.date} ${ce.start.time || ""} ${rangeWord} ${ce.end.time || ""}`;
     } else {
+        // اگر متفاوت بود، هر دو تاریخ و زمان نمایش داده بشه
         timeLine = `${ce.start?.date || ""} ${ce.start?.time || ""} ${rangeWord} ${ce.end?.date || ""} ${ce.end?.time || ""}`;
     }
 
-    // ساخت پیام
+    // پیام نهایی
     message += `<div style="border:1px solid #d0d0d0;border-radius:8px;padding:10px;line-height:2;">
         <b>📄 ${ce.summary || "<i>بدون عنوان</i>"}</b><br>
         📅 ${timeLine} <br>
         📍 ${ce.location || "<i>بدون مکان</i>"}
     </div>`;
+
 
     document.getElementById('result').innerHTML = message;
 }
