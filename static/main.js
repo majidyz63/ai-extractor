@@ -95,12 +95,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             const data = await r.json();
             // 👇 نمایش خلاصه خروجی مدل
             renderExtractorOutput(data);
-            document.getElementById("outputArea").style.display = "block";
+            // document.getElementById("outputArea").style.display = "block";
         } catch (err) {
             // 👇 اگر fetch شکست بخوره، خطا نمایش داده میشه
             document.getElementById("result").textContent =
                 "⚠️ Error: " + err.message;
-            document.getElementById("outputArea").style.display = "block";
+            // document.getElementById("outputArea").style.display = "block";
             console.error("Extract error:", err);
         }
     });
