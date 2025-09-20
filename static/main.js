@@ -252,7 +252,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function handleMediaRecorder(engine, lang) {
         if (!isRecording) {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/ogg" });
+            mediaRecorder = new MediaRecorder(stream);
             chunks = [];
 
             mediaRecorder.ondataavailable = e => chunks.push(e.data);
