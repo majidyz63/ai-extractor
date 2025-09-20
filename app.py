@@ -2,7 +2,7 @@ import os
 import json
 import requests
 from datetime import datetime
-from flask import Flask, request, jsonify, render_template_string
+from flask import Flask, request, jsonify, render_template, render_template_string
 from flask_cors import CORS
 
 app = Flask(__name__)
@@ -12,7 +12,7 @@ CORS(app)
 
 @app.route("/")
 def index():
-    return app.send_static_file("index.html")
+    return render_template("index.html")
 
 @app.route("/api/extract", methods=["POST"])
 def extract():
