@@ -252,16 +252,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function handleMediaRecorder(engine, lang) {
         if (!isRecording) {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+            mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/ogg" });
             chunks = [];
 
             mediaRecorder.ondataavailable = e => chunks.push(e.data);
 
             mediaRecorder.onstop = async () => {
                 alert("onstop called! Chunks: " + chunks.length);
-                console.log("Chunks:", chunks);
-
                 clearTimeout(recordTimeout);
+                if (!chunks.length) {
+                    alert("No audio recorded on mobile. Try another browser or device.");
+                    return;
+                }
                 if (engine === "google" || engine === "vosk" || engine === "whisper") {
                     try {
                         await recordAndSend("https://common-junglefowl-neoprojects-82c5720a.koyeb.app/api/extract", lang);
@@ -270,7 +272,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 }
             };
-
 
             mediaRecorder.start();
             micBtn.textContent = "⏹️ Stop";
