@@ -58,10 +58,25 @@ function renderExtractorOutput(data) {
         </div>`;
     }
 
+    // انتخاب واژه مناسب برای بازه زمانی براساس زبان کاربر
+    let lang = document.getElementById("langSelect").value;
+    let rangeWord = "to";
+    if (lang === "fa-IR") rangeWord = "تا";
+    else if (lang === "nl-NL") rangeWord = "tot";
+    else if (lang === "fr-FR") rangeWord = "à";
+
+    // اگر تاریخ شروع و پایان یکی بود، فقط بازه‌ی ساعتی نشون بده
+    let timeLine = "";
+    if (ce.start?.date && ce.end?.date && ce.start.date === ce.end.date) {
+        timeLine = `${ce.start.date} ${ce.start.time || ""} ${rangeWord} ${ce.end.time || ""}`;
+    } else {
+        timeLine = `${ce.start?.date || ""} ${ce.start?.time || ""} ${rangeWord} ${ce.end?.date || ""} ${ce.end?.time || ""}`;
+    }
+
+    // ساخت پیام
     message += `<div style="border:1px solid #d0d0d0;border-radius:8px;padding:10px;line-height:2;">
         <b>📄 ${ce.summary || "<i>بدون عنوان</i>"}</b><br>
-        📅 ${ce.start?.date || "?"} ${ce.start?.time || ""} 
-        ${ce.end?.date || ""} ${ce.end?.time ? "تا " + ce.end.time : ""} <br>
+        📅 ${timeLine} <br>
         📍 ${ce.location || "<i>بدون مکان</i>"}
     </div>`;
 
