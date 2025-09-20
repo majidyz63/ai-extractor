@@ -35,13 +35,25 @@ async function renderDynamicFields() {
         div.innerHTML += `<label>${f}:<input name="${f}" /></label>`;
     });
 }
-// === تابع نمایش خلاصه خروجی مدل ===
+
+// 📋 نمایش لاگ روی صفحه
+function log(msg) {
+    const debugBox = document.getElementById("debug");
+    if (debugBox) {
+        debugBox.textContent += msg + "\n";
+        debugBox.scrollTop = debugBox.scrollHeight;
+    }
+    console.log(msg);
+}
+
+// === نمایش خلاصه خروجی مدل ===
 function renderExtractorOutput(data) {
     let ce = data.output?.calendar_event;
-    console.log("OUTPUT: ", ce);
+    log("OUTPUT: " + JSON.stringify(ce));
     let message = "";
     if (!ce) {
-        document.getElementById('result').innerHTML = "<span style='color:#d00'>❌ خروجی استخراج یافت نشد.</span>";
+        document.getElementById('result').innerHTML =
+            "<span style='color:#d00'>❌ خروجی استخراج یافت نشد.</span>";
         return;
     }
     let missing = [];
@@ -59,31 +71,24 @@ function renderExtractorOutput(data) {
         </div>`;
     }
 
-    // انتخاب واژه مناسب برای بازه زمانی براساس زبان کاربر
-    // انتخاب واژه مناسب برای بازه زمانی بر اساس زبان
     let lang = document.getElementById("langSelect").value;
     let rangeWord = "to";
     if (lang === "fa-IR") rangeWord = "تا";
     else if (lang === "nl-NL") rangeWord = "tot";
     else if (lang === "fr-FR") rangeWord = "à";
 
-    // اگر تاریخ شروع و پایان یکی باشه:
     let timeLine = "";
     if (ce.start?.date && ce.end?.date && ce.start.date === ce.end.date) {
-        // 2025-09-22 10:00 تا 11:00
         timeLine = `${ce.start.date} ${ce.start.time || ""} ${rangeWord} ${ce.end.time || ""}`;
     } else {
-        // اگر متفاوت بود، هر دو تاریخ و زمان نمایش داده بشه
         timeLine = `${ce.start?.date || ""} ${ce.start?.time || ""} ${rangeWord} ${ce.end?.date || ""} ${ce.end?.time || ""}`;
     }
 
-    // پیام نهایی
     message += `<div style="border:1px solid #d0d0d0;border-radius:8px;padding:10px;line-height:2;">
         <b>📄 ${ce.summary || "<i>بدون عنوان</i>"}</b><br>
         📅 ${timeLine} <br>
         📍 ${ce.location || "<i>بدون مکان</i>"}
     </div>`;
-
 
     document.getElementById('result').innerHTML = message;
 }
@@ -114,7 +119,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             lang: document.getElementById("langSelect").value
         };
 
-        console.log("📤 Sending body:", body);
+        log("📤 Sending body: " + JSON.stringify(body));
 
         try {
             const r = await fetch("/api/extract", {
@@ -128,15 +133,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             const data = await r.json();
-            // 👇 نمایش خلاصه خروجی مدل
             renderExtractorOutput(data);
-            // document.getElementById("outputArea").style.display = "block";
         } catch (err) {
-            // 👇 اگر fetch شکست بخوره، خطا نمایش داده میشه
             document.getElementById("result").textContent =
                 "⚠️ Error: " + err.message;
-            // document.getElementById("outputArea").style.display = "block";
-            console.error("Extract error:", err);
+            log("Extract error: " + err);
         }
     });
 
@@ -146,7 +147,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const langSelect = document.getElementById('langSelect');
     const clearBtn = document.getElementById('clearBtn');
 
-    // 🎯 وضعیت MediaRecorder
     let isRecording = false;
     let mediaRecorder;
     let chunks = [];
@@ -155,7 +155,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ---------- WebSpeech API ----------
     function startWebSpeech(lang) {
         if (!("webkitSpeechRecognition" in window)) {
-            alert("Your browser does not support Web Speech API.");
+            log("❌ Your browser does not support Web Speech API.");
             return;
         }
 
@@ -184,7 +184,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
 
         rec.onerror = (err) => {
-            console.warn("❌ Speech error:", err);
+            log("❌ Speech error: " + JSON.stringify(err));
             micBtn.textContent = "🎤";
         };
 
@@ -197,6 +197,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ---------- Google / Vosk / Whisper ----------
     async function recordAndSend(endpoint, langCode) {
         const blob = new Blob(chunks, { type: "audio/webm" });
+        log("Final blob size: " + blob.size);
         const arrayBuffer = await blob.arrayBuffer();
         const audioCtx = new AudioContext();
         const decoded = await audioCtx.decodeAudioData(arrayBuffer);
@@ -211,14 +212,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             const r = await fetch(endpoint, { method: "POST", body: formData });
             const data = await r.json();
-            alert("Server response: " + JSON.stringify(data));
-            console.log("SERVER RESPONSE:", data);
+            log("SERVER RESPONSE: " + JSON.stringify(data));
 
             if (data.title) {
                 mainInput.value = `${data.title} ${data.date} ${data.time} ${data.location}`;
-                // 👇 نمایش خلاصه خروجی مدل
                 renderExtractorOutput(data);
-                showOutput(data); // اگر خروجی اضافی نمی‌خواهی، این خط را حذف کن
+                showOutput(data);
             } else if (data.text) {
                 mainInput.value = data.text;
                 document.getElementById('result').textContent = data.text;
@@ -228,7 +227,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
         } catch (err) {
-            alert("Error sending audio: " + err);
+            log("Error sending audio: " + err);
         }
     }
 
@@ -290,20 +289,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             mediaRecorder = new MediaRecorder(stream);
             chunks = [];
 
-            mediaRecorder.ondataavailable = e => chunks.push(e.data);
+            mediaRecorder.ondataavailable = e => {
+                log("ondataavailable: " + e.data.type + " size=" + e.data.size);
+                if (e.data && e.data.size > 0) chunks.push(e.data);
+            };
 
             mediaRecorder.onstop = async () => {
-                alert("onstop called! Chunks: " + chunks.length);
+                log("onstop called! Chunks: " + chunks.length);
                 clearTimeout(recordTimeout);
                 if (!chunks.length) {
-                    alert("No audio recorded on mobile. Try another browser or device.");
+                    log("❌ No audio recorded on mobile. Try another browser or device.");
                     return;
                 }
                 if (engine === "google" || engine === "vosk" || engine === "whisper") {
                     try {
                         await recordAndSend("https://common-junglefowl-neoprojects-82c5720a.koyeb.app/api/extract", lang);
                     } catch (err) {
-                        alert("recordAndSend error: " + err);
+                        log("recordAndSend error: " + err);
                     }
                 }
             };
@@ -317,6 +319,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     mediaRecorder.stop();
                     micBtn.textContent = "🎤";
                     isRecording = false;
+                    log("⏹️ Auto-stopped after timeout");
                 }
             }, 60000);
 
@@ -341,6 +344,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     clearBtn.onclick = () => {
         mainInput.value = "";
         mainInput.focus();
+        log("Input cleared");
     };
-
 });
