@@ -318,33 +318,33 @@ def extract():
     except Exception as e:
         return jsonify({"error": f"Server error: {e}"}), 500
     
-   # ---------------- Whisper Speech-to-Text ---------------- #
+# ---------------- Whisper Speech-to-Text ---------------- #
 @app.route("/api/whisper_speech_to_text", methods=["POST"])
 def whisper_speech_to_text():
     try:
-        # 📥 فایل صوتی و زبان از کاربر
-        audio_file = request.files["file"]
-        lang = request.form.get("lang", "en")  # پیش‌فرض انگلیسی اگر چیزی نیومد
-        print("🎤 Whisper lang received:", lang)
+        if "file" not in request.files:
+            return jsonify({"error": "❌ No file uploaded"}), 400
 
-        # 🔑 کلید API از env
+        audio_file = request.files["file"]
+        lang = request.form.get("lang", "en")
+
         api_key = os.environ.get("OPENAI_API_KEY")
         if not api_key:
             return jsonify({"error": "❌ No OPENAI_API_KEY set"}), 500
 
-        import openai
-        openai.api_key = api_key
+        # کتابخانه جدید OpenAI
+        from openai import OpenAI
+        client = OpenAI(api_key=api_key)
 
-        # 🗣️ صدا رو بفرست به Whisper با زبان مشخص
-        transcript = openai.Audio.transcriptions.create(
+        # 📤 ارسال فایل به Whisper
+        transcript = client.audio.transcriptions.create(
             model="whisper-1",
             file=audio_file,
-            language=lang  # 👈 اجبار به زبان انتخاب‌شده
+            language=lang
         )
 
-        # ✅ خروجی نهایی
         return jsonify({
-            "text": transcript["text"],
+            "text": transcript.text,
             "lang": lang
         })
 

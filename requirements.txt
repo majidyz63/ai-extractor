@@ -5,4 +5,5 @@ python-dotenv
 requests
 google-cloud-speech
 gunicorn
-openai==0.28
+openai>=1.3.0
+
