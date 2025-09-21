@@ -207,9 +207,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         const wavBuffer = audioBufferToWav(decoded);
         const wavBlob = new Blob([wavBuffer], { type: "audio/wav" });
 
+        // 🆕 نگاشت زبان به فرمت کوتاه‌تر
+        function mapLangCode(lang) {
+            if (lang.startsWith("fa")) return "fa";
+            if (lang.startsWith("en")) return "en";
+            if (lang.startsWith("nl")) return "nl";
+            if (lang.startsWith("fr")) return "fr";
+            return "en"; // پیش‌فرض
+        }
+
         const formData = new FormData();
         formData.append("file", wavBlob, "audio.wav");
-        formData.append("lang", langCode);
+        formData.append("lang", mapLangCode(langCode));  // ✅ اصلاح شد
 
         try {
             const r = await fetch(endpoint, { method: "POST", body: formData });
@@ -232,6 +241,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             log("Error sending audio: " + err);
         }
     }
+
 
     function audioBufferToWav(buffer) {
         const numOfChan = buffer.numberOfChannels,
