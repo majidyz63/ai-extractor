@@ -263,3 +263,7 @@ clearBtn.onclick = () => {
     mainInput.focus();
     log("Input cleared", "CLIENT");
 };
+window.addEventListener("DOMContentLoaded", () => {
+    fetchModels().catch(err => log("❌ fetchModels error: " + err, "ERROR"));
+    fetchPrompts().catch(err => log("❌ fetchPrompts error: " + err, "ERROR"));
+});

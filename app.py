@@ -54,10 +54,14 @@ PROMPT_TYPES = {
 
 @app.route("/api/prompts")
 def get_prompts():
-    prompts = list(PROMPT_TYPES.keys())
-    if not prompts:  # اگه خالی شد، پیش‌فرض بده
-        prompts = ["calendar_event", "task_list", "trading_signal"]
+    # مستقیم لیست فایل‌های YAML موجود در پوشه prompts رو بده
+    try:
+        files = os.listdir("prompts")
+        prompts = [f for f in files if f.endswith(".yaml")]
+    except Exception:
+        prompts = ["calendar_fa.yaml", "calendar_en.yaml", "calendar_nl.yaml", "calendar_fr.yaml"]
     return jsonify({"prompts": prompts})
+
 
 PROMPT_VARS = {
     "calendar_event": ["title", "date", "time", "reminder"],
