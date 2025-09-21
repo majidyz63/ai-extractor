@@ -329,12 +329,16 @@ def whisper_speech_to_text():
         audio_file = request.files["file"]
         lang = request.form.get("lang", "en")
 
-        # استفاده از استریم به جای FileStorage
-        transcript = client.audio.transcriptions.create(
-            model="whisper-1",
-            file=audio_file.stream,
-            language=lang
-        )
+        # ذخیره موقت فایل برای سازگاری با OpenAI
+        temp_path = os.path.join(UPLOAD_FOLDER, "temp.wav")
+        audio_file.save(temp_path)
+
+        with open(temp_path, "rb") as f:
+            transcript = client.audio.transcriptions.create(
+                model="whisper-1",
+                file=f,
+                language=lang
+            )
 
         return jsonify({
             "text": transcript.text,
