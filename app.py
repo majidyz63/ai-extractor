@@ -287,6 +287,8 @@ def extract():
             },
             timeout=60
         )
+        print("🔢 Status Code:", resp.status_code)
+        print("📄 Raw Response:", resp.text[:500])
 
         raw = {}
         ai_text = None
