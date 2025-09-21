@@ -1,15 +1,8 @@
-# --- Core Framework ---
 Flask
 Flask-Cors
-gunicorn
-
-# --- Config / Env ---
-python-dotenv
 PyYAML
-
-# --- Networking ---
+python-dotenv
 requests
-
-# --- Speech-to-Text Engines ---
 google-cloud-speech
-openai>=1.12.0
+gunicorn
+openai==0.28
