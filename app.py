@@ -256,24 +256,19 @@ def api_complete():
 # =============== تغییر کوچک در /api/extract (فقط فوروارد) ==============
 @app.route("/api/extract", methods=["POST"])
 def extract():
+    data = request.json or {}
+    model = data.get("model")
+    user_input = data.get("input", "")
+    prompt_type = data.get("prompt_type", "calendar_event")
+    lang = data.get("lang", "en-US")
+
+    if not user_input:
+        return jsonify({"error": "No input provided"}), 400
+
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    final_prompt = build_prompt_from_yaml(prompt_type, user_input, today_str, lang)
+
     try:
-        data = request.get_json(force=True) or {}
-        model = data.get("model")
-        user_input = data.get("input", "")
-        lang = data.get("lang", "nl-NL")
-        prompt_type = data.get("prompt_type", "calendar_event")
-
-        if not user_input:
-            return jsonify({"error": "No input provided"}), 400
-
-        prompt_file = PROMPT_MAP.get(lang, DEFAULT_PROMPT_FILE)
-        prompt_path = os.path.join("prompts", prompt_file)
-        today_str = datetime.now().strftime("%Y-%m-%d")
-        user_vars = {"input": user_input}
-        sys_vars = {"today": today_str}
-
-        final_prompt = build_prompt_from_yaml(prompt_path, user_vars, sys_vars)
-
         payload = {
             "model": model,
             "messages": [
@@ -281,59 +276,72 @@ def extract():
             ]
         }
 
-        OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
-        HEADERS = {
-            "Authorization": f"Bearer {os.environ.get('OPENROUTER_API_KEY')}",
-            "Content-Type": "application/json"
-        }
+        resp = requests.post(
+            os.environ.get("MODEL_API_URL", ""),
+            json=payload,
+            timeout=60
+        )
 
-        print("===> Sending to OpenRouter:", payload)
-        resp = requests.post(OPENROUTER_API_URL, headers=HEADERS, json=payload, timeout=80)
-        print("===> OpenRouter status:", resp.status_code)
-        print("===> OpenRouter response:", resp.text[:400])
+        raw = {}
+        ai_text = None
 
-        if resp.status_code != 200:
-            return jsonify({"error": f"OpenRouter error {resp.status_code}", "details": resp.text}), 500
-
-        ai_result = resp.json()
-        output_text = ai_result["choices"][0]["message"]["content"]
-
-        output_json = None
         try:
-            if output_text.strip().startswith("```"):
-                output_text = output_text.split("```")[1]
-            output_json = json.loads(output_text)
-        except Exception as e:
+            raw = resp.json()
+        except Exception:
             return jsonify({
-                "error": f"JSON parse failed: {e}",
-                "raw": output_text
+                "error": "Model API did not return JSON",
+                "raw": resp.text,
+                "status_code": resp.status_code
             }), 500
+
+        print("🤖 Raw Model Response:", raw)
+
+        if isinstance(raw, dict):
+            ai_text = raw.get("output") or raw.get("content")
+            if not ai_text and "choices" in raw:
+                ai_text = raw["choices"][0]["message"]["content"]
+
+        if not ai_text:
+            return jsonify({"error": "No content in response", "raw": raw}), 500
+
+        # پاکسازی خروجی
+        clean = ai_text.replace("```json", "").replace("```", "").strip()
+
+        # تلاش برای JSON parse
+        parsed = None
+        try:
+            parsed = json.loads(clean)
+            if isinstance(parsed, str):
+                parsed = json.loads(parsed)
+        except Exception as e:
+            app.logger.error(f"❌ JSON Parse Error: {e}")
+            app.logger.error(f"📝 Clean string was:\n{clean}")
+            return jsonify({"error": f"JSON parse failed: {e}", "raw": clean}), 500
 
         return jsonify({
             "model": model,
-            "lang": lang,
-            "input": user_input,
-            "output": output_json,
             "prompt_type": prompt_type,
-            "raw": ai_result
+            "input": user_input,
+            "lang": lang,
+            "output": parsed,
+            "raw": raw
         })
 
     except Exception as e:
-        import traceback
-        print("SERVER ERROR in /api/extract:", e)
-        traceback.print_exc()
-        return jsonify({"error": f"Server error: {e}"}), 500
+        app.logger.error(f"🔥 Unexpected extract error: {e}")
+        return jsonify({"error": f"extract failed: {e}"}), 500
     
 # ---------------- Whisper Speech-to-Text ---------------- #
 @app.route("/api/whisper_speech_to_text", methods=["POST"])
 def whisper_speech_to_text():
     try:
+        if "file" not in request.files:
+            return jsonify({"error": "❌ No file uploaded"}), 400
+
         audio_file = request.files["file"]
-        lang = request.form.get("lang", "en")  # پیش‌فرض انگلیسی
+        lang = request.form.get("lang", "en")
 
-        print("🎤 Whisper lang received:", lang)
-
-        # استفاده از stream برای انتقال فایل صوتی به Whisper
+        # استفاده از استریم به جای FileStorage
         transcript = client.audio.transcriptions.create(
             model="whisper-1",
             file=audio_file.stream,
@@ -344,7 +352,6 @@ def whisper_speech_to_text():
             "text": transcript.text,
             "lang": lang
         })
-
     except Exception as e:
         print("❌ Whisper error:", e)
         return jsonify({"error": str(e)}), 500

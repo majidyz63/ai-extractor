@@ -36,27 +36,65 @@ async function renderDynamicFields() {
     });
 }
 
-// ---------------- لاگ دسته‌بندی‌شده ----------------
-function log(msg, category = "CLIENT") {
+// 📋 لاگ دسته‌بندی شده
+function log(msg, type = "INFO") {
     const debugBox = document.getElementById("debug");
-    const now = new Date();
-    const pad = n => n.toString().padStart(2, '0');
-    const timestamp = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-    const cat = category.toUpperCase();
-    const line = `[${timestamp}] [${cat}] ${msg}`;
+    const timestamp = new Date().toISOString().split("T")[1].split(".")[0];
+    const line = `[${timestamp}] [${type}] ${msg}`;
+
     if (debugBox) {
         debugBox.textContent += line + "\n";
         debugBox.scrollTop = debugBox.scrollHeight;
     }
-    if (cat === "ERROR") {
-        console.error(line);
-    } else if (cat === "SERVER") {
-        console.warn(line);
-    } else {
-        console.log(line);
-    }
+
+    if (type === "ERROR") console.error(line);
+    else if (type === "SERVER") console.warn(line);
+    else console.log(line);
 }
 
+// === دریافت مدل‌ها ===
+async function fetchModels() {
+    const r = await fetch('/api/models');
+    const data = await r.json();
+    const sel = document.getElementById('modelSelect');
+    sel.innerHTML = '';
+    data.models.forEach(m => sel.innerHTML += `<option>${m}</option>`);
+}
+
+// === دریافت پرامپت‌ها ===
+async function fetchPrompts() {
+    const r = await fetch('/api/prompts');
+    const data = await r.json();
+    const sel = document.getElementById('promptSelect');
+    sel.innerHTML = '';
+    data.prompts.forEach(p => sel.innerHTML += `<option>${p}</option>`);
+    sel.dispatchEvent(new Event("change"));
+}
+
+// === دریافت متغیرهای پرامپت ===
+async function fetchPromptVars(promptType) {
+    const r = await fetch('/api/prompt_vars', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: promptType })
+    });
+    const data = await r.json();
+    return data.vars || [];
+}
+
+// === رندر فیلدهای داینامیک ===
+async function renderDynamicFields() {
+    const promptType = document.getElementById('promptSelect').value;
+    const fields = await fetchPromptVars(promptType);
+    const div = document.getElementById('dynamicFields');
+    div.innerHTML = '';
+    fields.forEach(f => {
+        if (f === "today" || f === "input") return;
+        div.innerHTML += `<label>${f}:<input name="${f}" /></label>`;
+    });
+}
+
+// === نمایش خروجی استخراج ===
 function renderExtractorOutput(data) {
     let ce = data.output?.calendar_event;
     log("OUTPUT: " + JSON.stringify(ce), "SERVER");
@@ -103,6 +141,7 @@ function renderExtractorOutput(data) {
     document.getElementById('result').innerHTML = message;
 }
 
+// === نمایش فرم خروجی ساده ===
 function showOutput(json) {
     const outputArea = document.getElementById("outputArea");
     const outputForm = document.getElementById("outputForm");
@@ -113,12 +152,14 @@ function showOutput(json) {
     });
 }
 
+// === DOMContentLoaded ===
 document.addEventListener('DOMContentLoaded', async () => {
     await fetchModels();
     await fetchPrompts();
     await renderDynamicFields();
     document.getElementById('promptSelect').onchange = renderDynamicFields;
 
+    // فرم اصلی
     document.getElementById("extractForm").addEventListener("submit", async (e) => {
         e.preventDefault();
 
@@ -138,9 +179,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 body: JSON.stringify(body)
             });
 
-            if (!r.ok) {
-                throw new Error(`❌ Server error: ${r.status}`);
-            }
+            if (!r.ok) throw new Error(`❌ Server error: ${r.status}`);
 
             const data = await r.json();
             renderExtractorOutput(data);
@@ -184,18 +223,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             let interim = "";
             for (let i = e.resultIndex; i < e.results.length; i++) {
                 const transcript = e.results[i][0].transcript;
-                if (e.results[i].isFinal) {
-                    finalTranscript += transcript + " ";
-                } else {
-                    interim += transcript;
-                }
+                if (e.results[i].isFinal) finalTranscript += transcript + " ";
+                else interim += transcript;
             }
             mainInput.value = (finalTranscript + interim).trim();
         };
 
         rec.onerror = (err) => {
-            let msg = err.error || JSON.stringify(err);
-            log("❌ Speech error: " + msg, "ERROR");
+            log("❌ Speech error: " + (err.error || JSON.stringify(err)), "ERROR");
             micBtn.textContent = "🎤";
         };
 
@@ -216,18 +251,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const wavBuffer = audioBufferToWav(decoded);
         const wavBlob = new Blob([wavBuffer], { type: "audio/wav" });
 
-        // دسته‌بندی زبان برای Whisper
-        function mapLangCode(lang) {
-            if (lang.startsWith("fa")) return "fa";
-            if (lang.startsWith("en")) return "en";
-            if (lang.startsWith("nl")) return "nl";
-            if (lang.startsWith("fr")) return "fr";
-            return "en";
-        }
-
         const formData = new FormData();
         formData.append("file", wavBlob, "audio.wav");
-        formData.append("lang", mapLangCode(langCode));
+        formData.append("lang", langCode);
 
         try {
             const r = await fetch(endpoint, { method: "POST", body: formData });
@@ -245,7 +271,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             } else {
                 mainInput.value = "";
             }
-
         } catch (err) {
             log("Error sending audio: " + err, "ERROR");
         }
