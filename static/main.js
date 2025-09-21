@@ -263,7 +263,39 @@ clearBtn.onclick = () => {
     mainInput.focus();
     log("Input cleared", "CLIENT");
 };
+
+
+// ---------- INIT (DOMContentLoaded) ----------
 window.addEventListener("DOMContentLoaded", () => {
     fetchModels().catch(err => log("❌ fetchModels error: " + err, "ERROR"));
     fetchPrompts().catch(err => log("❌ fetchPrompts error: " + err, "ERROR"));
+
+    const micBtn = document.getElementById("micBtn");
+    const engineSelect = document.getElementById("voiceEngine");
+    const langSelect = document.getElementById("langSelect");
+    const clearBtn = document.getElementById("clearBtn");
+
+    if (!micBtn) {
+        log("❌ micBtn not found in DOM", "ERROR");
+    } else {
+        micBtn.addEventListener("click", () => {
+            log("🎤 Mic button clicked!", "CLIENT");
+            const engine = engineSelect.value;
+            const lang = langSelect.value;
+
+            if (engine === "webspeech") {
+                startWebSpeech(lang);
+            } else {
+                handleMediaRecorder(engine, lang);
+            }
+        });
+    }
+
+    if (clearBtn) {
+        clearBtn.onclick = () => {
+            mainInput.value = "";
+            mainInput.focus();
+            log("Input cleared", "CLIENT");
+        };
+    }
 });
