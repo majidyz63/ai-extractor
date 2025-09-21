@@ -287,7 +287,11 @@ def extract():
             "Content-Type": "application/json"
         }
 
-        resp = requests.post(OPENROUTER_API_URL, headers=HEADERS, json=payload, timeout=40)
+        print("===> Sending to OpenRouter:", payload)
+        resp = requests.post(OPENROUTER_API_URL, headers=HEADERS, json=payload, timeout=80)
+        print("===> OpenRouter status:", resp.status_code)
+        print("===> OpenRouter response:", resp.text[:400])
+
         if resp.status_code != 200:
             return jsonify({"error": f"OpenRouter error {resp.status_code}", "details": resp.text}), 500
 
@@ -315,6 +319,9 @@ def extract():
         })
 
     except Exception as e:
+        import traceback
+        print("SERVER ERROR in /api/extract:", e)
+        traceback.print_exc()
         return jsonify({"error": f"Server error: {e}"}), 500
     
 # ---------------- Whisper Speech-to-Text ---------------- #
