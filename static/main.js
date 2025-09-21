@@ -38,9 +38,10 @@ async function renderDynamicFields() {
 }
 
 // ==================== Log System ==================== //
+// 📋 لاگ دسته‌بندی شده
 function log(msg, type = "INFO") {
     const debugBox = document.getElementById("debug");
-    const timestamp = new Date().toISOString().split("T")[1].split(".")[0];
+    const timestamp = new Date().toISOString().split("T")[1].split(".")[0]; // ساعت:دقیقه:ثانیه
     const line = `[${timestamp}] [${type}] ${msg}`;
 
     if (debugBox) {
@@ -53,54 +54,50 @@ function log(msg, type = "INFO") {
     else console.log(line);
 }
 
-// ==================== Render Extractor Output ==================== //
-function renderExtractorOutput(data) {
-    let ce = data.output?.calendar_event;
-    log("OUTPUT: " + JSON.stringify(ce), "SERVER");
-    let message = "";
-    if (!ce) {
-        document.getElementById('result').innerHTML =
-            "<span style='color:#d00'>❌ خروجی استخراج یافت نشد.</span>";
+// ---------- WebSpeech API ----------
+function startWebSpeech(lang) {
+    if (!("webkitSpeechRecognition" in window)) {
+        log("❌ Your browser does not support Web Speech API.", "ERROR");
         return;
     }
-    let missing = [];
-    if (!ce.summary) missing.push("عنوان");
-    if (!ce.start?.date) missing.push("تاریخ شروع");
-    if (!ce.start?.time) missing.push("ساعت شروع");
-    if (!ce.end?.date) missing.push("تاریخ پایان");
-    if (!ce.end?.time) missing.push("ساعت پایان");
-    if (!ce.location) missing.push("مکان");
 
-    if (missing.length > 0) {
-        message += `<div style="color:#b63;background:#fff4e6;border-radius:6px;padding:8px 10px;margin-bottom:7px;">
-        ⚠️ بعضی قسمت‌ها ناقصند: <b>${missing.join("، ")}</b><br>
-        لطفاً جمله را دقیق‌تر وارد کنید یا مقدار را دستی کامل نمایید.
-        </div>`;
-    }
+    const rec = new webkitSpeechRecognition();
+    rec.lang = lang;
+    rec.interimResults = true;
+    rec.maxAlternatives = 1;
+    rec.continuous = true;
 
-    let lang = document.getElementById("langSelect").value;
-    let rangeWord = "to";
-    if (lang === "fa-IR") rangeWord = "تا";
-    else if (lang === "nl-NL") rangeWord = "tot";
-    else if (lang === "fr-FR") rangeWord = "à";
+    let finalTranscript = "";
 
-    let timeLine = "";
-    if (ce.start?.date && ce.end?.date && ce.start.date === ce.end.date) {
-        timeLine = `${ce.start.date} ${ce.start.time || ""} ${rangeWord} ${ce.end.time || ""}`;
-    } else {
-        timeLine = `${ce.start?.date || ""} ${ce.start?.time || ""} ${rangeWord} ${ce.end?.date || ""} ${ce.end?.time || ""}`;
-    }
+    micBtn.textContent = "🎙️ Listening...";
+    rec.start();
 
-    message += `<div style="border:1px solid #d0d0d0;border-radius:8px;padding:10px;line-height:2;">
-        <b>📄 ${ce.summary || "<i>بدون عنوان</i>"}</b><br>
-        📅 ${timeLine} <br>
-        📍 ${ce.location || "<i>بدون مکان</i>"}
-    </div>`;
+    rec.onresult = e => {
+        let interim = "";
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+            const transcript = e.results[i][0].transcript;
+            if (e.results[i].isFinal) {
+                finalTranscript += transcript + " ";
+            } else {
+                interim += transcript;
+            }
+        }
+        mainInput.value = (finalTranscript + interim).trim();
+    };
 
-    document.getElementById('result').innerHTML = message;
+    rec.onerror = (err) => {
+        let msg = err.error || JSON.stringify(err);
+        log("❌ Speech error: " + msg, "ERROR");
+        micBtn.textContent = "🎤";
+    };
+
+    rec.onend = () => {
+        micBtn.textContent = "🎤";
+        mainInput.value = finalTranscript.trim();
+    };
 }
 
-// ==================== Audio Recording & Engines ==================== //
+// ---------- Google / Vosk / Whisper ----------
 async function recordAndSend(endpoint, langCode) {
     const blob = new Blob(chunks, { type: "audio/webm" });
     log("Final blob size: " + blob.size, "CLIENT");
@@ -111,20 +108,33 @@ async function recordAndSend(endpoint, langCode) {
     const wavBuffer = audioBufferToWav(decoded);
     const wavBlob = new Blob([wavBuffer], { type: "audio/wav" });
 
+    function mapLangCode(lang) {
+        if (lang.startsWith("fa")) return "fa";
+        if (lang.startsWith("en")) return "en";
+        if (lang.startsWith("nl")) return "nl";
+        if (lang.startsWith("fr")) return "fr";
+        return "en"; // پیش‌فرض
+    }
+
     const formData = new FormData();
     formData.append("file", wavBlob, "audio.wav");
-    formData.append("lang", langCode);
+    formData.append("lang", mapLangCode(langCode));
 
     try {
         const r = await fetch(endpoint, { method: "POST", body: formData });
         const data = await r.json();
         log("SERVER RESPONSE: " + JSON.stringify(data), "SERVER");
 
-        if (data.text) {
-            document.getElementById("mainInput").value = data.text;
+        if (data.title) {
+            mainInput.value = `${data.title} ${data.date} ${data.time} ${data.location}`;
+            renderExtractorOutput(data);
+            showOutput(data);
+        } else if (data.text) {
+            mainInput.value = data.text;
             document.getElementById('result').textContent = data.text;
+            document.getElementById("outputArea").style.display = "none";
         } else {
-            document.getElementById("mainInput").value = "";
+            mainInput.value = "";
         }
 
     } catch (err) {
@@ -132,7 +142,6 @@ async function recordAndSend(endpoint, langCode) {
     }
 }
 
-// Convert AudioBuffer → WAV
 function audioBufferToWav(buffer) {
     const numOfChan = buffer.numberOfChannels,
         length = buffer.length * numOfChan * 2 + 44,
@@ -171,6 +180,7 @@ function audioBufferToWav(buffer) {
     }
     return buffer2;
 }
+
 function interleave(left, right) {
     if (!right) return left;
     const length = left.length + right.length;
@@ -184,106 +194,72 @@ function interleave(left, right) {
     return result;
 }
 
-// ==================== Init ==================== //
-document.addEventListener('DOMContentLoaded', async () => {
-    await fetchModels();
-    await fetchPrompts();
-    await renderDynamicFields();
-    document.getElementById('promptSelect').onchange = renderDynamicFields;
+async function handleMediaRecorder(engine, lang) {
+    if (!isRecording) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        chunks = [];
 
-    document.getElementById("extractForm").addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const body = {
-            model: document.getElementById("modelSelect").value,
-            prompt_type: document.getElementById("promptSelect").value,
-            input: document.getElementById("mainInput").value,
-            lang: document.getElementById("langSelect").value
+        mediaRecorder.ondataavailable = e => {
+            log("ondataavailable: " + e.data.type + " size=" + e.data.size, "CLIENT");
+            if (e.data && e.data.size > 0) chunks.push(e.data);
         };
 
-        log("📤 Sending body: " + JSON.stringify(body), "CLIENT");
-
-        try {
-            const r = await fetch("/api/extract", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(body)
-            });
-            const data = await r.json();
-            renderExtractorOutput(data);
-        } catch (err) {
-            document.getElementById("result").textContent =
-                "⚠️ Error: " + err.message;
-            log("Extract error: " + err, "ERROR");
-        }
-    });
-
-    // 🎤 Mic
-    const micBtn = document.getElementById('micBtn');
-    const mainInput = document.getElementById('mainInput');
-    const engineSelect = document.getElementById('voiceEngine');
-    const langSelect = document.getElementById('langSelect');
-    const clearBtn = document.getElementById('clearBtn');
-
-    let isRecording = false;
-    let mediaRecorder;
-    let chunks = [];
-    let recordTimeout;
-
-    async function handleMediaRecorder(engine, lang) {
-        if (!isRecording) {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorder = new MediaRecorder(stream);
-            chunks = [];
-
-            mediaRecorder.ondataavailable = e => {
-                log("ondataavailable: " + e.data.type + " size=" + e.data.size, "CLIENT");
-                if (e.data && e.data.size > 0) chunks.push(e.data);
-            };
-
-            mediaRecorder.onstop = async () => {
-                log("onstop called! Chunks: " + chunks.length, "CLIENT");
-                clearTimeout(recordTimeout);
-                if (!chunks.length) {
-                    log("❌ No audio recorded on mobile", "ERROR");
-                    return;
-                }
-
-                if (engine === "whisper") {
+        mediaRecorder.onstop = async () => {
+            log("onstop called! Chunks: " + chunks.length, "CLIENT");
+            clearTimeout(recordTimeout);
+            if (!chunks.length) {
+                log("❌ No audio recorded on mobile. Try another browser or device.", "ERROR");
+                return;
+            }
+            if (engine === "whisper") {
+                try {
                     await recordAndSend("/api/whisper_speech_to_text", lang);
-                } else if (engine === "google" || engine === "vosk") {
+                } catch (err) {
+                    log("Whisper error: " + err, "ERROR");
+                }
+            } else if (engine === "google" || engine === "vosk") {
+                try {
                     await recordAndSend("/api/extract", lang);
+                } catch (err) {
+                    log("recordAndSend error: " + err, "ERROR");
                 }
-            };
+            }
+        };
 
-            mediaRecorder.start();
-            micBtn.textContent = "⏹️ Stop";
-            isRecording = true;
+        mediaRecorder.start();
+        micBtn.textContent = "⏹️ Stop";
+        isRecording = true;
 
-            recordTimeout = setTimeout(() => {
-                if (isRecording) {
-                    mediaRecorder.stop();
-                    micBtn.textContent = "🎤";
-                    isRecording = false;
-                    log("⏹️ Auto-stopped after timeout", "CLIENT");
-                }
-            }, 60000);
+        recordTimeout = setTimeout(() => {
+            if (isRecording) {
+                mediaRecorder.stop();
+                micBtn.textContent = "🎤";
+                isRecording = false;
+                log("⏹️ Auto-stopped after timeout", "CLIENT");
+            }
+        }, 60000);
 
-        } else {
-            mediaRecorder.stop();
-            micBtn.textContent = "🎤";
-            isRecording = false;
-        }
+    } else {
+        mediaRecorder.stop();
+        micBtn.textContent = "🎤";
+        isRecording = false;
     }
+}
 
-    micBtn.onclick = () => {
-        const engine = engineSelect.value;
-        const lang = langSelect.value;
+micBtn.onclick = () => {
+    const engine = engineSelect.value;
+    const lang = langSelect.value;
+
+    if (engine === "webspeech") {
+        startWebSpeech(lang);
+    } else {
         handleMediaRecorder(engine, lang);
-    };
+    }
+};
 
-    clearBtn.onclick = () => {
-        mainInput.value = "";
-        mainInput.focus();
-        log("Input cleared", "CLIENT");
-    };
-});
+clearBtn.onclick = () => {
+    mainInput.value = "";
+    mainInput.focus();
+    log("Input cleared", "CLIENT");
+};
