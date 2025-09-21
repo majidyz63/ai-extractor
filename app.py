@@ -275,10 +275,16 @@ def extract():
                 {"role": "user", "content": final_prompt}
             ]
         }
+        model_api_url = os.environ.get("MODEL_API_URL", "")
+        print("🌍 MODEL_API_URL =", model_api_url)
+        print("📦 Payload =", json.dumps(payload, ensure_ascii=False))
 
         resp = requests.post(
-            os.environ.get("MODEL_API_URL", ""),
+            model_api_url,
             json=payload,
+            headers={
+                "Authorization": f"Bearer {os.getenv('OPENROUTER_API_KEY','sk-...')}"
+            },
             timeout=60
         )
 
