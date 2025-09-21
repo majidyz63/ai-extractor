@@ -36,20 +36,27 @@ async function renderDynamicFields() {
     });
 }
 
-// 📋 نمایش لاگ روی صفحه
-function log(msg) {
+// 📋 لاگ دسته‌بندی شده
+function log(msg, type = "INFO") {
     const debugBox = document.getElementById("debug");
+    const timestamp = new Date().toISOString().split("T")[1].split(".")[0]; // فقط ساعت:دقیقه:ثانیه
+    const line = `[${timestamp}] [${type}] ${msg}`;
+
     if (debugBox) {
-        debugBox.textContent += msg + "\n";
+        debugBox.textContent += line + "\n";
         debugBox.scrollTop = debugBox.scrollHeight;
     }
-    console.log(msg);
+
+    // برای کنسول مرورگر هم رنگی
+    if (type === "ERROR") console.error(line);
+    else if (type === "SERVER") console.warn(line);
+    else console.log(line);
 }
 
 // === نمایش خلاصه خروجی مدل ===
 function renderExtractorOutput(data) {
     let ce = data.output?.calendar_event;
-    log("OUTPUT: " + JSON.stringify(ce));
+    log("OUTPUT: " + JSON.stringify(ce), "SERVER");
     let message = "";
     if (!ce) {
         document.getElementById('result').innerHTML =
@@ -119,7 +126,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             lang: document.getElementById("langSelect").value
         };
 
-        log("📤 Sending body: " + JSON.stringify(body));
+        log("📤 Sending body: " + JSON.stringify(body), "CLIENT");
 
         try {
             const r = await fetch("/api/extract", {
@@ -137,9 +144,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         } catch (err) {
             document.getElementById("result").textContent =
                 "⚠️ Error: " + err.message;
-            log("Extract error: " + err);
+            log("Extract error: " + err, "ERROR");
         }
     });
+});
 
     const micBtn = document.getElementById('micBtn');
     const mainInput = document.getElementById('mainInput');

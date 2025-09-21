@@ -6,8 +6,10 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 from datetime import datetime
 from utils.prompt_engine import build_prompt_from_yaml
+from openai import OpenAI
 
 load_dotenv()
+client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 app = Flask(__name__)
 CORS(app, resources={
@@ -322,27 +324,19 @@ def extract():
 @app.route("/api/whisper_speech_to_text", methods=["POST"])
 def whisper_speech_to_text():
     try:
-        if "file" not in request.files:
-            return jsonify({"error": "❌ No file uploaded"}), 400
-
+        # 📥 فایل صوتی و زبان از کاربر
         audio_file = request.files["file"]
-        lang = request.form.get("lang", "en")
+        lang = request.form.get("lang", "en")  # پیش‌فرض انگلیسی اگر چیزی نیومد
+        print("🎤 Whisper lang received:", lang)
 
-        api_key = os.environ.get("OPENAI_API_KEY")
-        if not api_key:
-            return jsonify({"error": "❌ No OPENAI_API_KEY set"}), 500
-
-        # کتابخانه جدید OpenAI
-        from openai import OpenAI
-        client = OpenAI(api_key=api_key)
-
-        # 📤 ارسال فایل به Whisper
+        # 🗣️ صدا رو بفرست به Whisper (SDK جدید OpenAI)
         transcript = client.audio.transcriptions.create(
             model="whisper-1",
-            file=audio_file,
+            file=audio_file.stream,   # 👈 حتماً stream یا read() باشه
             language=lang
         )
 
+        # ✅ خروجی نهایی
         return jsonify({
             "text": transcript.text,
             "lang": lang
