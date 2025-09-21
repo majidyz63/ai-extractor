@@ -9,7 +9,7 @@ from utils.prompt_engine import build_prompt_from_yaml
 from openai import OpenAI
 
 load_dotenv()
-client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))  # Whisper: فقط یکبار ساخته شود
 
 app = Flask(__name__)
 CORS(app, resources={
@@ -54,14 +54,10 @@ PROMPT_TYPES = {
 
 @app.route("/api/prompts")
 def get_prompts():
-    # مستقیم لیست فایل‌های YAML موجود در پوشه prompts رو بده
-    try:
-        files = os.listdir("prompts")
-        prompts = [f for f in files if f.endswith(".yaml")]
-    except Exception:
-        prompts = ["calendar_fa.yaml", "calendar_en.yaml", "calendar_nl.yaml", "calendar_fr.yaml"]
+    prompts = list(PROMPT_TYPES.keys())
+    if not prompts:
+        prompts = ["calendar_event", "task_list", "trading_signal"]
     return jsonify({"prompts": prompts})
-
 
 PROMPT_VARS = {
     "calendar_event": ["title", "date", "time", "reminder"],
@@ -193,7 +189,6 @@ def api_active_models():
     models = read_models()
     if all_flag:
         return jsonify({"models": models})
-    # فقط مدل‌های active
     actives = [m["model"] for m in models if m.get("active")]
     return jsonify({"models": actives})
 
@@ -248,7 +243,7 @@ def api_complete():
             "messages": messages
         }
         resp = requests.post(
-            "https://openrouter.ai/api/v1/chat/completions",  # اینجا آدرس OpenRouter یا سرور خودت را بگذار
+            "https://openrouter.ai/api/v1/chat/completions",
             headers={
                 "Authorization": f"Bearer {os.getenv('OPENROUTER_API_KEY','sk-...')}"
             },
@@ -286,7 +281,6 @@ def extract():
             ]
         }
 
-        # تنظیم کلید OpenRouter خودت!
         OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
         HEADERS = {
             "Authorization": f"Bearer {os.environ.get('OPENROUTER_API_KEY')}",
@@ -300,7 +294,6 @@ def extract():
         ai_result = resp.json()
         output_text = ai_result["choices"][0]["message"]["content"]
 
-        # تلاش برای تبدیل به JSON
         output_json = None
         try:
             if output_text.strip().startswith("```"):
@@ -328,19 +321,18 @@ def extract():
 @app.route("/api/whisper_speech_to_text", methods=["POST"])
 def whisper_speech_to_text():
     try:
-        # 📥 فایل صوتی و زبان از کاربر
         audio_file = request.files["file"]
-        lang = request.form.get("lang", "en")  # پیش‌فرض انگلیسی اگر چیزی نیومد
+        lang = request.form.get("lang", "en")  # پیش‌فرض انگلیسی
+
         print("🎤 Whisper lang received:", lang)
 
-        # 🗣️ صدا رو بفرست به Whisper (SDK جدید OpenAI)
+        # استفاده از stream برای انتقال فایل صوتی به Whisper
         transcript = client.audio.transcriptions.create(
             model="whisper-1",
-            file=audio_file.stream,   # 👈 حتماً stream یا read() باشه
+            file=audio_file.stream,
             language=lang
         )
 
-        # ✅ خروجی نهایی
         return jsonify({
             "text": transcript.text,
             "lang": lang
@@ -350,9 +342,7 @@ def whisper_speech_to_text():
         print("❌ Whisper error:", e)
         return jsonify({"error": str(e)}), 500
 
-    
 # ================ RUN APP ================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     app.run(host="0.0.0.0", port=port, debug=False)
-
