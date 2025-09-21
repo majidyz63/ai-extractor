@@ -253,7 +253,7 @@ def api_complete():
     except Exception as e:
         return jsonify({"error":f"complete failed: {e}"}),500
 
-# =============== تغییر کوچک در /api/extract (فقط فوروارد) ==============
+# =============== تغییر کوچک در /api/extract (ارسال درست به OpenRouter) ==============  
 @app.route("/api/extract", methods=["POST"])
 def extract():
     data = request.json or {}
@@ -275,20 +275,16 @@ def extract():
                 {"role": "user", "content": final_prompt}
             ]
         }
-        model_api_url = os.environ.get("MODEL_API_URL", "")
-        print("🌍 MODEL_API_URL =", model_api_url)
-        print("📦 Payload =", json.dumps(payload, ensure_ascii=False))
 
         resp = requests.post(
-            model_api_url,
-            json=payload,
+            os.environ.get("MODEL_API_URL", "https://openrouter.ai/api/v1/chat/completions"),
             headers={
-                "Authorization": f"Bearer {os.getenv('OPENROUTER_API_KEY','sk-...')}"
+                "Authorization": f"Bearer {os.getenv('OPENROUTER_API_KEY','')}",
+                "Content-Type": "application/json"
             },
+            json=payload,
             timeout=60
         )
-        print("🔢 Status Code:", resp.status_code)
-        print("📄 Raw Response:", resp.text[:500])
 
         raw = {}
         ai_text = None
@@ -338,7 +334,7 @@ def extract():
     except Exception as e:
         app.logger.error(f"🔥 Unexpected extract error: {e}")
         return jsonify({"error": f"extract failed: {e}"}), 500
-    
+   
 # ---------------- Whisper Speech-to-Text ---------------- #
 @app.route("/api/whisper_speech_to_text", methods=["POST"])
 def whisper_speech_to_text():
