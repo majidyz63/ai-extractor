@@ -318,43 +318,43 @@ def extract():
     except Exception as e:
         return jsonify({"error": f"Server error: {e}"}), 500
     
-    # ---------------- Whisper Speech-to-Text ---------------- #
+   # ---------------- Whisper Speech-to-Text ---------------- #
 @app.route("/api/whisper_speech_to_text", methods=["POST"])
-def whisper_stt():
+def whisper_speech_to_text():
     try:
-        if "file" not in request.files:
-            return jsonify({"error": "❌ No file uploaded"}), 400
-
+        # 📥 فایل صوتی و زبان از کاربر
         audio_file = request.files["file"]
+        lang = request.form.get("lang", "en")  # پیش‌فرض انگلیسی اگر چیزی نیومد
+        print("🎤 Whisper lang received:", lang)
 
+        # 🔑 کلید API از env
         api_key = os.environ.get("OPENAI_API_KEY")
         if not api_key:
             return jsonify({"error": "❌ No OPENAI_API_KEY set"}), 500
 
-        files = {"file": (audio_file.filename, audio_file.stream, audio_file.mimetype)}
-        data = {"model": "whisper-1"}  # می‌تونی اگه مدل جدیدتر هست تغییر بدی
+        import openai
+        openai.api_key = api_key
 
-        resp = requests.post(
-            "https://api.openai.com/v1/audio/transcriptions",
-            headers={"Authorization": f"Bearer {api_key}"},
-            files=files,
-            data=data,
-            timeout=60
+        # 🗣️ صدا رو بفرست به Whisper با زبان مشخص
+        transcript = openai.Audio.transcriptions.create(
+            model="whisper-1",
+            file=audio_file,
+            language=lang  # 👈 اجبار به زبان انتخاب‌شده
         )
 
-        if resp.status_code != 200:
-            return jsonify({
-                "error": f"❌ Whisper API error {resp.status_code}",
-                "details": resp.text
-            }), resp.status_code
-
-        return jsonify(resp.json())
+        # ✅ خروجی نهایی
+        return jsonify({
+            "text": transcript["text"],
+            "lang": lang
+        })
 
     except Exception as e:
-        return jsonify({"error": f"Whisper STT failed: {e}"}), 500
+        print("❌ Whisper error:", e)
+        return jsonify({"error": str(e)}), 500
 
-
+    
 # ================ RUN APP ================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     app.run(host="0.0.0.0", port=port, debug=False)
+
