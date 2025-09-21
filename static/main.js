@@ -243,7 +243,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ---------- Google / Vosk / Whisper ----------
     async function recordAndSend(endpoint, langCode) {
         const blob = new Blob(chunks, { type: "audio/webm" });
-        log("Final blob size: " + blob.size, "CLIENT");
+        log("Final blob size: " + blob.size);
         const arrayBuffer = await blob.arrayBuffer();
         const audioCtx = new AudioContext();
         const decoded = await audioCtx.decodeAudioData(arrayBuffer);
@@ -251,14 +251,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         const wavBuffer = audioBufferToWav(decoded);
         const wavBlob = new Blob([wavBuffer], { type: "audio/wav" });
 
+        // ✅ تبدیل کد زبان کامل (fa-IR, nl-NL, ...) به ISO-639-1 (fa, nl, ...)
+        function mapWhisperLang(lang) {
+            if (lang.startsWith("fa")) return "fa";
+            if (lang.startsWith("en")) return "en";
+            if (lang.startsWith("nl")) return "nl";
+            if (lang.startsWith("fr")) return "fr";
+            return "en"; // پیش‌فرض
+        }
+
         const formData = new FormData();
         formData.append("file", wavBlob, "audio.wav");
-        formData.append("lang", langCode);
+        formData.append("lang", mapWhisperLang(langCode));  // ✅ اصلاح شده
 
         try {
             const r = await fetch(endpoint, { method: "POST", body: formData });
             const data = await r.json();
-            log("SERVER RESPONSE: " + JSON.stringify(data), "SERVER");
+            log("SERVER RESPONSE: " + JSON.stringify(data));
 
             if (data.title) {
                 mainInput.value = `${data.title} ${data.date} ${data.time} ${data.location}`;
@@ -271,8 +280,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             } else {
                 mainInput.value = "";
             }
+
         } catch (err) {
-            log("Error sending audio: " + err, "ERROR");
+            log("Error sending audio: " + err);
         }
     }
 
