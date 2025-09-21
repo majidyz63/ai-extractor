@@ -317,6 +317,42 @@ def extract():
 
     except Exception as e:
         return jsonify({"error": f"Server error: {e}"}), 500
+    
+    # ---------------- Whisper Speech-to-Text ---------------- #
+@app.route("/api/whisper_speech_to_text", methods=["POST"])
+def whisper_stt():
+    try:
+        if "file" not in request.files:
+            return jsonify({"error": "❌ No file uploaded"}), 400
+
+        audio_file = request.files["file"]
+
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            return jsonify({"error": "❌ No OPENAI_API_KEY set"}), 500
+
+        files = {"file": (audio_file.filename, audio_file.stream, audio_file.mimetype)}
+        data = {"model": "whisper-1"}  # می‌تونی اگه مدل جدیدتر هست تغییر بدی
+
+        resp = requests.post(
+            "https://api.openai.com/v1/audio/transcriptions",
+            headers={"Authorization": f"Bearer {api_key}"},
+            files=files,
+            data=data,
+            timeout=60
+        )
+
+        if resp.status_code != 200:
+            return jsonify({
+                "error": f"❌ Whisper API error {resp.status_code}",
+                "details": resp.text
+            }), resp.status_code
+
+        return jsonify(resp.json())
+
+    except Exception as e:
+        return jsonify({"error": f"Whisper STT failed: {e}"}), 500
+
 
 # ================ RUN APP ================
 if __name__ == "__main__":

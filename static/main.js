@@ -184,9 +184,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
 
         rec.onerror = (err) => {
-            log("❌ Speech error: " + JSON.stringify(err));
+            let msg = err.error || JSON.stringify(err);
+            log("❌ Speech error: " + msg);
             micBtn.textContent = "🎤";
         };
+
 
         rec.onend = () => {
             micBtn.textContent = "🎤";
@@ -301,13 +303,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                     log("❌ No audio recorded on mobile. Try another browser or device.");
                     return;
                 }
-                if (engine === "google" || engine === "vosk" || engine === "whisper") {
+                if (engine === "whisper") {
                     try {
-                        await recordAndSend("https://common-junglefowl-neoprojects-82c5720a.koyeb.app/api/extract", lang);
+                        await recordAndSend("/api/whisper_speech_to_text", lang);
+                    } catch (err) {
+                        log("Whisper error: " + err);
+                    }
+                } else if (engine === "google" || engine === "vosk") {
+                    try {
+                        await recordAndSend("/api/extract", lang);
                     } catch (err) {
                         log("recordAndSend error: " + err);
                     }
                 }
+
             };
 
             mediaRecorder.start();
