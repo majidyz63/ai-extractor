@@ -513,4 +513,4 @@ document.addEventListener('DOMContentLoaded', async () => {
         mainInput.focus();
         log("Input cleared");
     };
-});
+
