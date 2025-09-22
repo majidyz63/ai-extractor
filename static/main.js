@@ -40,14 +40,13 @@ async function fetchPrompts() {
         const data = await resp.json();
         const sel = document.getElementById("promptSelect");
         sel.innerHTML = "";
-        (data || []).forEach(p => {
+        (data.prompts || []).forEach(p => {
             const opt = document.createElement("option");
             opt.value = p;
             opt.textContent = p;
             sel.appendChild(opt);
         });
-        sel.dispatchEvent(new Event("change"));
-        log("Prompts loaded: " + JSON.stringify(data), "CLIENT");
+        log("Prompts loaded: " + JSON.stringify(data.prompts), "CLIENT");
     } catch (err) {
         log("⚠️ fetchPrompts failed: " + err, "ERROR");
     }

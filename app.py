@@ -55,16 +55,15 @@ PROMPT_TYPES = {
 @app.route("/api/prompts")
 def get_prompts():
     try:
-        prompt_dir = "prompts"
-        if not os.path.exists(prompt_dir):
-            return jsonify({"prompts": []})
-
-        files = [f for f in os.listdir(prompt_dir) if f.endswith(".yaml")]
-        prompts = [os.path.splitext(f)[0] for f in files]  # اسم بدون .yaml
-
-        return jsonify({"prompts": prompts})
+        prompt_files = [
+            f for f in os.listdir("prompts")
+            if f.endswith(".yaml") or f.endswith(".yml")
+        ]
+        # فقط اسم بدون پسوند رو برگردون
+        prompt_names = [os.path.splitext(f)[0] for f in prompt_files]
+        return jsonify({"prompts": prompt_names})
     except Exception as e:
-        return jsonify({"error": str(e), "prompts": []})
+        return jsonify({"error": str(e), "prompts": []}), 500
 
 @app.route("/api/prompt_vars", methods=["GET", "POST"])
 def get_prompt_vars():
