@@ -54,16 +54,16 @@ PROMPT_TYPES = {
 
 @app.route("/api/prompts")
 def get_prompts():
-    try:
-        prompt_files = [
-            f for f in os.listdir("prompts")
-            if f.endswith(".yaml") or f.endswith(".yml")
-        ]
-        # فقط اسم بدون پسوند رو برگردون
-        prompt_names = [os.path.splitext(f)[0] for f in prompt_files]
-        return jsonify({"prompts": prompt_names})
-    except Exception as e:
-        return jsonify({"error": str(e), "prompts": []}), 500
+    prompts = list(PROMPT_TYPES.keys())
+    if not prompts:
+        prompts = ["calendar_event", "task_list", "trading_signal"]
+    return jsonify({"prompts": prompts})
+
+PROMPT_VARS = {
+    "calendar_event": ["title", "date", "time", "reminder"],
+    "task_list": ["tasks"],
+    "trading_signal": ["symbol", "action", "price"]
+}
 
 @app.route("/api/prompt_vars", methods=["GET", "POST"])
 def get_prompt_vars():
@@ -253,28 +253,47 @@ def api_complete():
     except Exception as e:
         return jsonify({"error":f"complete failed: {e}"}),500
 
-# =============== نسخه‌ی DEBUG از /api/extract =================
+# =============== تغییر کوچک در /api/extract (فقط فوروارد) ==============
+# ... سایر ایمپورت‌ها بالای فایل
+import os
+import json
+import requests
+from flask import request, jsonify
+from datetime import datetime
+
+# ... سایر کدها و توابع قبلی
+
 @app.route("/api/extract", methods=["POST"])
 def extract():
     try:
         data = request.get_json(force=True) or {}
         model = data.get("model")
         user_input = data.get("input", "")
-        lang = data.get("lang", "nl-NL")
+        lang = data.get("lang", "en-US")
         prompt_type = data.get("prompt_type", "calendar_event")
 
         if not user_input:
             return jsonify({"error": "No input provided"}), 400
 
-        # انتخاب فایل پرامپت بر اساس زبان
+        # Build prompt as before
         prompt_file = PROMPT_MAP.get(lang, DEFAULT_PROMPT_FILE)
         prompt_path = os.path.join("prompts", prompt_file)
         today_str = datetime.now().strftime("%Y-%m-%d")
         user_vars = {"input": user_input}
         sys_vars = {"today": today_str}
-
-        # ساخت پرامپت نهایی از YAML
         final_prompt = build_prompt_from_yaml(prompt_path, user_vars, sys_vars)
+
+        # OpenRouter API config (URL ثابت)
+        OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+        api_key = os.environ.get("OPENROUTER_API_KEY")
+        if not api_key:
+            print("[ERROR] OPENROUTER_API_KEY environment variable is not set!")
+            return jsonify({"error": "OPENROUTER_API_KEY is not set in server environment!"}), 500
+
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
 
         payload = {
             "model": model,
@@ -283,84 +302,76 @@ def extract():
             ]
         }
 
-        # درخواست به OpenRouter
-        OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
-        HEADERS = {
-            "Authorization": f"Bearer {os.environ.get('OPENROUTER_API_KEY')}",
-            "Content-Type": "application/json"
-        }
+        # Debug print
+        print("=== OPENROUTER DEBUG ===")
+        print("URL:", OPENROUTER_API_URL)
+        print("API_KEY:", api_key[:8], "...")  # فقط بخشی از کلید
+        print("HEADERS:", headers)
+        print("PAYLOAD:", json.dumps(payload, ensure_ascii=False, indent=2))
 
-        resp = requests.post(OPENROUTER_API_URL, headers=HEADERS, json=payload, timeout=40)
+        resp = requests.post(OPENROUTER_API_URL, headers=headers, json=payload, timeout=80)
 
-        raw_text = resp.text
-        try:
-            ai_result = resp.json()
-        except Exception as e:
+        print("=== OPENROUTER RESPONSE ===")
+        print("Status:", resp.status_code)
+        print("Response:", resp.text[:400])
+
+        if resp.status_code != 200:
             return jsonify({
-                "error": f"Failed to parse response JSON: {e}",
-                "raw_text": raw_text
+                "error": f"OpenRouter error {resp.status_code}",
+                "details": resp.text
             }), 500
 
-        # استخراج متن
-        output_text = None
-        if "choices" in ai_result:
-            output_text = ai_result["choices"][0]["message"]["content"]
+        ai_result = resp.json()
+        output_text = ai_result["choices"][0]["message"]["content"]
 
-        # تلاش برای JSON parse
         output_json = None
-        parse_error = None
-        if output_text:
-            try:
-                clean = output_text.strip()
-                if clean.startswith("```"):
-                    clean = clean.split("```")[1]
-                    if clean.strip().startswith("json"):
-                        clean = clean.strip()[4:]
-                output_json = json.loads(clean)
-            except Exception as e:
-                parse_error = str(e)
+        try:
+            # Clean output if wrapped in ```
+            if output_text.strip().startswith("```"):
+                output_text = output_text.split("```")[1]
+            output_json = json.loads(output_text)
+        except Exception as e:
+            return jsonify({
+                "error": f"JSON parse failed: {e}",
+                "raw": output_text
+            }), 500
 
         return jsonify({
             "model": model,
             "lang": lang,
-            "prompt_type": prompt_type,
             "input": user_input,
-            "final_prompt": final_prompt,   # 🟢 پرامپت واقعی که ارسال شد
-            "raw_response": ai_result,      # 🟢 کل خروجی مدل
-            "output_text": output_text,     # 🟢 متن خام برگشتی
-            "output": output_json,          # 🟢 تلاش برای JSON
-            "parse_error": parse_error      # 🟢 اگه JSON خراب باشه اینجا خطا رو می‌بینیم
+            "output": output_json,
+            "prompt_type": prompt_type,
+            "raw": ai_result
         })
 
     except Exception as e:
+        import traceback
+        print("[SERVER ERROR] in /api/extract:", e)
+        traceback.print_exc()
         return jsonify({"error": f"Server error: {e}"}), 500
-
    
 # ---------------- Whisper Speech-to-Text ---------------- #
 @app.route("/api/whisper_speech_to_text", methods=["POST"])
 def whisper_speech_to_text():
     try:
-        if "file" not in request.files:
-            return jsonify({"error": "❌ No file uploaded"}), 400
-
         audio_file = request.files["file"]
-        lang = request.form.get("lang", "en")
+        lang = request.form.get("lang", "en")  # پیش‌فرض انگلیسی
 
-        # ذخیره موقت فایل برای سازگاری با OpenAI
-        temp_path = os.path.join(UPLOAD_FOLDER, "temp.wav")
-        audio_file.save(temp_path)
+        print("🎤 Whisper lang received:", lang)
 
-        with open(temp_path, "rb") as f:
-            transcript = client.audio.transcriptions.create(
-                model="whisper-1",
-                file=f,
-                language=lang
-            )
+        # استفاده از stream برای انتقال فایل صوتی به Whisper
+        transcript = client.audio.transcriptions.create(
+            model="whisper-1",
+            file=audio_file.stream,
+            language=lang
+        )
 
         return jsonify({
             "text": transcript.text,
             "lang": lang
         })
+
     except Exception as e:
         print("❌ Whisper error:", e)
         return jsonify({"error": str(e)}), 500
