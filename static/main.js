@@ -52,27 +52,19 @@ async function fetchPrompts() {
     }
 }
 
-// === نمایش خروجی مدل ===
+// === نمایش ساده خروجی مدل (برای تست) ===
 function renderExtractorOutput(data) {
-    let ce = data.output?.calendar_event;
-    log("OUTPUT: " + JSON.stringify(ce), "SERVER");
-    let message = "";
-    if (!ce) {
-        document.getElementById('result').innerHTML =
-            "<span style='color:#d00'>❌ خروجی استخراج یافت نشد.</span>";
-        return;
+    log("OUTPUT: " + JSON.stringify(data), "SERVER");
+
+    const resultBox = document.getElementById("result");
+    if (!resultBox) return;
+
+    // فقط محتوای خام output رو نشون بده
+    if (data.output) {
+        resultBox.textContent = JSON.stringify(data.output, null, 2);
+    } else {
+        resultBox.textContent = "❌ خروجی خالی است یا داده ندارد.";
     }
-    let missing = [];
-    if (!ce.summary) missing.push("عنوان");
-    if (!ce.start?.date) missing.push("تاریخ شروع");
-    if (!ce.start?.time) missing.push("زمان شروع");
-    if (missing.length) {
-        message += "⚠️ مقادیر ناقص: " + missing.join(", ");
-    }
-    document.getElementById('result').textContent =
-        "📅 " + ce.summary + "\n⏰ " + ce.start.date + " " + ce.start.time +
-        (ce.location ? "\n📍 " + ce.location : "") +
-        (message ? "\n" + message : "");
 }
 
 // === DOMContentLoaded ===
