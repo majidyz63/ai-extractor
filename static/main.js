@@ -116,6 +116,53 @@ document.addEventListener('DOMContentLoaded', async () => {
     let mediaRecorder;
     let chunks = [];
     let recordTimeout;
+    // === نمایش خلاصه خروجی مدل ===
+    function renderExtractorOutput(data) {
+        let ce = data.output?.calendar_event;
+        log("OUTPUT: " + JSON.stringify(ce), "SERVER");
+        let message = "";
+        if (!ce) {
+            document.getElementById('result').innerHTML =
+                "<span style='color:#d00'>❌ خروجی استخراج یافت نشد.</span>";
+            return;
+        }
+        let missing = [];
+        if (!ce.summary) missing.push("عنوان");
+        if (!ce.start?.date) missing.push("تاریخ شروع");
+        if (!ce.start?.time) missing.push("ساعت شروع");
+        if (!ce.end?.date) missing.push("تاریخ پایان");
+        if (!ce.end?.time) missing.push("ساعت پایان");
+        if (!ce.location) missing.push("مکان");
+
+        if (missing.length > 0) {
+            message += `<div style="color:#b63;background:#fff4e6;border-radius:6px;padding:8px 10px;margin-bottom:7px;">
+        ⚠️ بعضی قسمت‌ها ناقصند: <b>${missing.join("، ")}</b><br>
+        لطفاً جمله را دقیق‌تر وارد کنید یا مقدار را دستی کامل نمایید.
+        </div>`;
+        }
+
+        let lang = document.getElementById("langSelect").value;
+        let rangeWord = "to";
+        if (lang === "fa-IR") rangeWord = "تا";
+        else if (lang === "nl-NL") rangeWord = "tot";
+        else if (lang === "fr-FR") rangeWord = "à";
+
+        let timeLine = "";
+        if (ce.start?.date && ce.end?.date && ce.start.date === ce.end.date) {
+            timeLine = `${ce.start.date} ${ce.start.time || ""} ${rangeWord} ${ce.end.time || ""}`;
+        } else {
+            timeLine = `${ce.start?.date || ""} ${ce.start?.time || ""} ${rangeWord} ${ce.end?.date || ""} ${ce.end?.time || ""}`;
+        }
+
+        message += `<div style="border:1px solid #d0d0d0;border-radius:8px;padding:10px;line-height:2;">
+        <b>📄 ${ce.summary || "<i>بدون عنوان</i>"}</b><br>
+        📅 ${timeLine} <br>
+        📍 ${ce.location || "<i>بدون مکان</i>"}
+    </div>`;
+
+        document.getElementById('result').innerHTML = message;
+    }
+
 
     // ---------- WebSpeech ----------
     function startWebSpeech(lang) {
