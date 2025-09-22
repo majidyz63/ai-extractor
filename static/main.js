@@ -1,72 +1,3 @@
-// 📋 لاگ دسته‌بندی شده
-function log(msg, type = "INFO") {
-    const debugBox = document.getElementById("debug");
-    const timestamp = new Date().toISOString().split("T")[1].split(".")[0];
-    const line = `[${timestamp}] [${type}] ${msg}`;
-
-    if (debugBox) {
-        debugBox.textContent += line + "\n";
-        debugBox.scrollTop = debugBox.scrollHeight;
-    }
-
-    if (type === "ERROR") console.error(line);
-    else if (type === "SERVER") console.warn(line);
-    else console.log(line);
-}
-
-// === پر کردن فیلدهای Model و Prompt ===
-async function fetchModels() {
-    try {
-        const r = await fetch('/api/models');
-        const data = await r.json();
-        const sel = document.getElementById('modelSelect');
-        sel.innerHTML = '';
-        (data.models || []).forEach(m => {
-            sel.innerHTML += `<option>${m}</option>`;
-        });
-        log("✅ Models loaded", "CLIENT");
-    } catch (err) {
-        log("❌ fetchModels error: " + err, "ERROR");
-    }
-}
-
-async function fetchPrompts() {
-    try {
-        const r = await fetch('/api/prompts');
-        const data = await r.json();
-        const sel = document.getElementById('promptSelect');
-        sel.innerHTML = '';
-        (data.prompts || []).forEach(p => {
-            sel.innerHTML += `<option>${p}</option>`;
-        });
-        sel.dispatchEvent(new Event("change"));
-        log("✅ Prompts loaded", "CLIENT");
-    } catch (err) {
-        log("❌ fetchPrompts error: " + err, "ERROR");
-    }
-}
-
-async function fetchPromptVars(promptType) {
-    const r = await fetch('/api/prompt_vars', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: promptType })
-    });
-    const data = await r.json();
-    return data.vars || [];
-}
-
-async function renderDynamicFields() {
-    const promptType = document.getElementById('promptSelect').value;
-    const fields = await fetchPromptVars(promptType);
-    const div = document.getElementById('dynamicFields');
-    div.innerHTML = '';
-    fields.forEach(f => {
-        if (f === "today" || f === "input") return;
-        div.innerHTML += `<label>${f}:<input name="${f}" /></label>`;
-    });
-}
-
 // === DOMContentLoaded ===
 document.addEventListener('DOMContentLoaded', async () => {
     await fetchModels();
@@ -74,106 +5,44 @@ document.addEventListener('DOMContentLoaded', async () => {
     await renderDynamicFields();
     document.getElementById('promptSelect').onchange = renderDynamicFields;
 
-    // === فرم اصلی ===
-    document.getElementById("extractForm").addEventListener("submit", async (e) => {
-        e.preventDefault();
-
-        const body = {
-            model: document.getElementById("modelSelect").value,
-            prompt_type: document.getElementById("promptSelect").value,
-            input: document.getElementById("mainInput").value,
-            lang: document.getElementById("langSelect").value
-        };
-
-        log("📤 Sending body: " + JSON.stringify(body), "CLIENT");
-
-        try {
-            const r = await fetch("/api/extract", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(body)
-            });
-
-            if (!r.ok) throw new Error(`❌ Server error: ${r.status}`);
-
-            const data = await r.json();
-            log("SERVER OUTPUT: " + JSON.stringify(data.output), "SERVER");
-            renderExtractorOutput(data);
-        } catch (err) {
-            log("Extract error: " + err, "ERROR");
-            document.getElementById("result").textContent = "⚠️ Error: " + err.message;
-        }
-    });
-
-    // 🎤 Voice buttons
     const micBtn = document.getElementById('micBtn');
+    const clearBtn = document.getElementById('clearBtn');
     const mainInput = document.getElementById('mainInput');
     const engineSelect = document.getElementById('voiceEngine');
     const langSelect = document.getElementById('langSelect');
-    const clearBtn = document.getElementById('clearBtn');
 
     let isRecording = false;
     let mediaRecorder;
     let chunks = [];
     let recordTimeout;
-    // === نمایش خلاصه خروجی مدل ===
-    function renderExtractorOutput(data) {
-        let ce = data.output?.calendar_event;
-        log("OUTPUT: " + JSON.stringify(ce), "SERVER");
-        let message = "";
-        if (!ce) {
-            document.getElementById('result').innerHTML =
-                "<span style='color:#d00'>❌ خروجی استخراج یافت نشد.</span>";
-            return;
-        }
-        let missing = [];
-        if (!ce.summary) missing.push("عنوان");
-        if (!ce.start?.date) missing.push("تاریخ شروع");
-        if (!ce.start?.time) missing.push("ساعت شروع");
-        if (!ce.end?.date) missing.push("تاریخ پایان");
-        if (!ce.end?.time) missing.push("ساعت پایان");
-        if (!ce.location) missing.push("مکان");
 
-        if (missing.length > 0) {
-            message += `<div style="color:#b63;background:#fff4e6;border-radius:6px;padding:8px 10px;margin-bottom:7px;">
-        ⚠️ بعضی قسمت‌ها ناقصند: <b>${missing.join("، ")}</b><br>
-        لطفاً جمله را دقیق‌تر وارد کنید یا مقدار را دستی کامل نمایید.
-        </div>`;
+    // 📋 لاگ دسته‌بندی شده
+    function log(msg, type = "INFO") {
+        const debugBox = document.getElementById("debug");
+        const timestamp = new Date().toISOString().split("T")[1].split(".")[0];
+        const line = `[${timestamp}] [${type}] ${msg}`;
+
+        if (debugBox) {
+            debugBox.textContent += line + "\n";
+            debugBox.scrollTop = debugBox.scrollHeight;
         }
 
-        let lang = document.getElementById("langSelect").value;
-        let rangeWord = "to";
-        if (lang === "fa-IR") rangeWord = "تا";
-        else if (lang === "nl-NL") rangeWord = "tot";
-        else if (lang === "fr-FR") rangeWord = "à";
-
-        let timeLine = "";
-        if (ce.start?.date && ce.end?.date && ce.start.date === ce.end.date) {
-            timeLine = `${ce.start.date} ${ce.start.time || ""} ${rangeWord} ${ce.end.time || ""}`;
-        } else {
-            timeLine = `${ce.start?.date || ""} ${ce.start?.time || ""} ${rangeWord} ${ce.end?.date || ""} ${ce.end?.time || ""}`;
-        }
-
-        message += `<div style="border:1px solid #d0d0d0;border-radius:8px;padding:10px;line-height:2;">
-        <b>📄 ${ce.summary || "<i>بدون عنوان</i>"}</b><br>
-        📅 ${timeLine} <br>
-        📍 ${ce.location || "<i>بدون مکان</i>"}
-    </div>`;
-
-        document.getElementById('result').innerHTML = message;
+        if (type === "ERROR") console.error(line);
+        else if (type === "SERVER") console.warn(line);
+        else console.log(line);
     }
 
-
-    // ---------- WebSpeech ----------
+    // === WebSpeech API ===
     function startWebSpeech(lang) {
         if (!("webkitSpeechRecognition" in window)) {
-            log("❌ Web Speech API not supported", "ERROR");
+            log("❌ Your browser does not support Web Speech API.", "ERROR");
             return;
         }
 
         const rec = new webkitSpeechRecognition();
         rec.lang = lang;
         rec.interimResults = true;
+        rec.maxAlternatives = 1;
         rec.continuous = true;
 
         let finalTranscript = "";
@@ -185,14 +54,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             let interim = "";
             for (let i = e.resultIndex; i < e.results.length; i++) {
                 const transcript = e.results[i][0].transcript;
-                if (e.results[i].isFinal) finalTranscript += transcript + " ";
-                else interim += transcript;
+                if (e.results[i].isFinal) {
+                    finalTranscript += transcript + " ";
+                } else {
+                    interim += transcript;
+                }
             }
             mainInput.value = (finalTranscript + interim).trim();
         };
 
         rec.onerror = (err) => {
-            log("❌ Speech error: " + JSON.stringify(err), "ERROR");
+            let msg = err.error || JSON.stringify(err);
+            log("❌ Speech error: " + msg, "ERROR");
             micBtn.textContent = "🎤";
         };
 
@@ -202,7 +75,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
     }
 
-    // ---------- Whisper / Google / Vosk ----------
+    // === ارسال فایل صوتی به سرور ===
     async function recordAndSend(endpoint, langCode) {
         const blob = new Blob(chunks, { type: "audio/webm" });
         log("Final blob size: " + blob.size, "CLIENT");
@@ -231,9 +104,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             const data = await r.json();
             log("SERVER RESPONSE: " + JSON.stringify(data), "SERVER");
 
-            if (data.text) {
+            if (data.title) {
+                mainInput.value = `${data.title} ${data.date} ${data.time} ${data.location}`;
+                renderExtractorOutput(data);
+            } else if (data.text) {
                 mainInput.value = data.text;
                 document.getElementById('result').textContent = data.text;
+                const outputArea = document.getElementById("outputArea");
+                if (outputArea) outputArea.style.display = "none";
+            } else {
+                mainInput.value = "";
             }
         } catch (err) {
             log("Error sending audio: " + err, "ERROR");
@@ -307,13 +187,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                 log("onstop called! Chunks: " + chunks.length, "CLIENT");
                 clearTimeout(recordTimeout);
                 if (!chunks.length) {
-                    log("❌ No audio recorded", "ERROR");
+                    log("❌ No audio recorded on mobile.", "ERROR");
                     return;
                 }
                 if (engine === "whisper") {
-                    await recordAndSend("/api/whisper_speech_to_text", lang);
-                } else {
-                    await recordAndSend("/api/extract", lang);
+                    try {
+                        await recordAndSend("/api/whisper_speech_to_text", lang);
+                    } catch (err) {
+                        log("Whisper error: " + err, "ERROR");
+                    }
+                } else if (engine === "google" || engine === "vosk") {
+                    try {
+                        await recordAndSend("/api/extract", lang);
+                    } catch (err) {
+                        log("recordAndSend error: " + err, "ERROR");
+                    }
                 }
             };
 
@@ -349,4 +237,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         mainInput.focus();
         log("Input cleared", "CLIENT");
     };
+
+    // === نمایش خلاصه خروجی مدل ===
+    function renderExtractorOutput(data) {
+        let ce = data.output?.calendar_event;
+        log("OUTPUT: " + JSON.stringify(ce), "SERVER");
+        let message = "";
+        if (!ce) {
+            document.getElementById('result').innerHTML =
+                "<span style='color:#d00'>❌ خروجی استخراج یافت نشد.</span>";
+            return;
+        }
+        if (ce.summary) message += "📄 " + ce.summary + "\n";
+        if (ce.start?.date && ce.start?.time && ce.end?.date && ce.end?.time) {
+            message += `📅 ${ce.start.date} ${ce.start.time} تا ${ce.end.date} ${ce.end.time}\n`;
+        } else if (ce.start?.date && ce.start?.time) {
+            message += `📅 ${ce.start.date} ${ce.start.time}\n`;
+        }
+        if (ce.location) message += "📍 " + ce.location + "\n";
+
+        document.getElementById('result').textContent = message.trim();
+    }
 });
