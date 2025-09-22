@@ -54,16 +54,17 @@ PROMPT_TYPES = {
 
 @app.route("/api/prompts")
 def get_prompts():
-    prompts = list(PROMPT_TYPES.keys())
-    if not prompts:
-        prompts = ["calendar_event", "task_list", "trading_signal"]
-    return jsonify({"prompts": prompts})
+    try:
+        prompt_dir = "prompts"
+        if not os.path.exists(prompt_dir):
+            return jsonify({"prompts": []})
 
-PROMPT_VARS = {
-    "calendar_event": ["title", "date", "time", "reminder"],
-    "task_list": ["tasks"],
-    "trading_signal": ["symbol", "action", "price"]
-}
+        files = [f for f in os.listdir(prompt_dir) if f.endswith(".yaml")]
+        prompts = [os.path.splitext(f)[0] for f in files]  # اسم بدون .yaml
+
+        return jsonify({"prompts": prompts})
+    except Exception as e:
+        return jsonify({"error": str(e), "prompts": []})
 
 @app.route("/api/prompt_vars", methods=["GET", "POST"])
 def get_prompt_vars():

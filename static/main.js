@@ -46,6 +46,7 @@ async function fetchPrompts() {
             opt.textContent = p;
             sel.appendChild(opt);
         });
+        sel.dispatchEvent(new Event("change"));
         log("Prompts loaded: " + JSON.stringify(data), "CLIENT");
     } catch (err) {
         log("⚠️ fetchPrompts failed: " + err, "ERROR");
