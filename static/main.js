@@ -373,3 +373,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         log("Input cleared", "CLIENT");
     };
 });
+
+// ----- Service Worker Registration -----
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/static/service-worker.js');
+}
+
