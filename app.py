@@ -54,10 +54,9 @@ PROMPT_TYPES = {
 
 @app.route("/api/prompts")
 def get_prompts():
-    prompts = list(PROMPT_TYPES.keys())
-    if not prompts:
-        prompts = ["calendar_event", "task_list", "trading_signal"]
-    return jsonify({"prompts": prompts})
+    # کلیدهای زبان از PROMPT_MAP برای سلکت
+    return jsonify({"prompts": list(PROMPT_MAP.keys())})
+
 
 PROMPT_VARS = {
     "calendar_event": ["title", "date", "time", "reminder"],
@@ -355,26 +354,46 @@ def extract():
 @app.route("/api/whisper_speech_to_text", methods=["POST"])
 def whisper_speech_to_text():
     try:
+        if "file" not in request.files:
+            return jsonify({"error": "❌ No file uploaded"}), 400
+
         audio_file = request.files["file"]
-        lang = request.form.get("lang", "en")  # پیش‌فرض انگلیسی
+        lang = request.form.get("lang", "en")
 
-        print("🎤 Whisper lang received:", lang)
+        temp_path = os.path.join(UPLOAD_FOLDER, "temp.wav")
+        audio_file.save(temp_path)
 
-        # استفاده از stream برای انتقال فایل صوتی به Whisper
-        transcript = client.audio.transcriptions.create(
-            model="whisper-1",
-            file=audio_file.stream,
-            language=lang
-        )
+        with open(temp_path, "rb") as f:
+            transcript = client.audio.transcriptions.create(
+                model="whisper-1",
+                file=f,
+                language=lang
+            )
+
+        # پاکسازی فایل موقت (اختیاری اما بهینه)
+        try:
+            os.remove(temp_path)
+        except Exception as ex:
+            print("Could not remove temp file:", ex)
 
         return jsonify({
             "text": transcript.text,
             "lang": lang
         })
-
     except Exception as e:
         print("❌ Whisper error:", e)
         return jsonify({"error": str(e)}), 500
+    
+@app.route("/api/prompt_langs")
+def api_prompt_langs():
+    # فقط زبان‌هایی که فایل YAML واقعاً موجوده رو بده
+    available = {}
+    for lang, fname in PROMPT_MAP.items():
+        path = os.path.join("prompts", fname)
+        if os.path.isfile(path):
+            available[lang] = fname
+    return jsonify(available)
+
 
 # ================ RUN APP ================
 if __name__ == "__main__":
