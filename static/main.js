@@ -299,3 +299,44 @@ clearBtn.onclick = () => {
     mainInput.focus();
     log("Input cleared", "CLIENT");
 };
+// === دکمه Extract ===
+extractBtn.onclick = async () => {
+    const model = document.getElementById("modelSelect").value;
+    const promptType = document.getElementById("promptSelect").value;
+    const userInput = mainInput.value.trim();
+    const lang = document.getElementById("langSelect").value;
+
+    if (!userInput) {
+        log("⚠️ No input provided", "ERROR");
+        return;
+    }
+
+    const body = {
+        model: model,
+        prompt_type: promptType,
+        input: userInput,
+        lang: lang
+    };
+
+    log("📤 Sending body: " + JSON.stringify(body), "CLIENT");
+
+    try {
+        const resp = await fetch("/api/extract", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+        });
+
+        if (!resp.ok) {
+            throw new Error("❌ Server error: " + resp.status);
+        }
+
+        const data = await resp.json();
+        log("SERVER OUTPUT: " + JSON.stringify(data), "SERVER");
+        renderExtractorOutput(data);
+        showOutput(data);
+
+    } catch (err) {
+        log("Extract error: " + err, "ERROR");
+    }
+};
