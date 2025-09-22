@@ -253,7 +253,7 @@ def api_complete():
     except Exception as e:
         return jsonify({"error":f"complete failed: {e}"}),500
 
-# =============== تغییر کوچک در /api/extract (فقط فوروارد) ==============
+# =============== نسخه‌ی DEBUG از /api/extract =================
 @app.route("/api/extract", methods=["POST"])
 def extract():
     try:
@@ -266,12 +266,14 @@ def extract():
         if not user_input:
             return jsonify({"error": "No input provided"}), 400
 
+        # انتخاب فایل پرامپت بر اساس زبان
         prompt_file = PROMPT_MAP.get(lang, DEFAULT_PROMPT_FILE)
         prompt_path = os.path.join("prompts", prompt_file)
         today_str = datetime.now().strftime("%Y-%m-%d")
         user_vars = {"input": user_input}
         sys_vars = {"today": today_str}
 
+        # ساخت پرامپت نهایی از YAML
         final_prompt = build_prompt_from_yaml(prompt_path, user_vars, sys_vars)
 
         payload = {
@@ -281,7 +283,7 @@ def extract():
             ]
         }
 
-        # تنظیم کلید OpenRouter خودت!
+        # درخواست به OpenRouter
         OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
         HEADERS = {
             "Authorization": f"Bearer {os.environ.get('OPENROUTER_API_KEY')}",
@@ -289,35 +291,50 @@ def extract():
         }
 
         resp = requests.post(OPENROUTER_API_URL, headers=HEADERS, json=payload, timeout=40)
-        if resp.status_code != 200:
-            return jsonify({"error": f"OpenRouter error {resp.status_code}", "details": resp.text}), 500
 
-        ai_result = resp.json()
-        output_text = ai_result["choices"][0]["message"]["content"]
-
-        # تلاش برای تبدیل به JSON
-        output_json = None
+        raw_text = resp.text
         try:
-            if output_text.strip().startswith("```"):
-                output_text = output_text.split("```")[1]
-            output_json = json.loads(output_text)
+            ai_result = resp.json()
         except Exception as e:
             return jsonify({
-                "error": f"JSON parse failed: {e}",
-                "raw": output_text
+                "error": f"Failed to parse response JSON: {e}",
+                "raw_text": raw_text
             }), 500
+
+        # استخراج متن
+        output_text = None
+        if "choices" in ai_result:
+            output_text = ai_result["choices"][0]["message"]["content"]
+
+        # تلاش برای JSON parse
+        output_json = None
+        parse_error = None
+        if output_text:
+            try:
+                clean = output_text.strip()
+                if clean.startswith("```"):
+                    clean = clean.split("```")[1]
+                    if clean.strip().startswith("json"):
+                        clean = clean.strip()[4:]
+                output_json = json.loads(clean)
+            except Exception as e:
+                parse_error = str(e)
 
         return jsonify({
             "model": model,
             "lang": lang,
-            "input": user_input,
-            "output": output_json,
             "prompt_type": prompt_type,
-            "raw": ai_result
+            "input": user_input,
+            "final_prompt": final_prompt,   # 🟢 پرامپت واقعی که ارسال شد
+            "raw_response": ai_result,      # 🟢 کل خروجی مدل
+            "output_text": output_text,     # 🟢 متن خام برگشتی
+            "output": output_json,          # 🟢 تلاش برای JSON
+            "parse_error": parse_error      # 🟢 اگه JSON خراب باشه اینجا خطا رو می‌بینیم
         })
 
     except Exception as e:
         return jsonify({"error": f"Server error: {e}"}), 500
+
    
 # ---------------- Whisper Speech-to-Text ---------------- #
 @app.route("/api/whisper_speech_to_text", methods=["POST"])
