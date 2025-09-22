@@ -52,27 +52,43 @@ async function fetchPrompts() {
     }
 }
 
-// === نمایش ساده خروجی مدل (برای تست) ===
+// === نمایش خلاصه خروجی مدل ===
 function renderExtractorOutput(data) {
-    log("OUTPUT: " + JSON.stringify(data), "SERVER");
-
-    const resultBox = document.getElementById("result");
-    if (!resultBox) return;
-
-    // فقط محتوای خام output رو نشون بده
-    if (data.output) {
-        resultBox.textContent = JSON.stringify(data.output, null, 2);
-    } else {
-        resultBox.textContent = "❌ خروجی خالی است یا داده ندارد.";
+    let ce = data.output?.calendar_event;
+    log("OUTPUT: " + JSON.stringify(ce), "SERVER");
+    let message = "";
+    if (!ce) {
+        document.getElementById('result').innerHTML =
+            "<span style='color:#d00'>❌ خروجی استخراج یافت نشد.</span>";
+        return;
     }
+    let missing = [];
+    if (!ce.summary) missing.push("title");
+    if (!ce.start?.date) missing.push("date");
+    if (!ce.start?.time) missing.push("time");
+    if (!ce.location) missing.push("location");
+
+    if (missing.length) {
+        message += "⚠️ Missing: " + missing.join(", ") + "<br>";
+    }
+
+    message += `<b>📄 ${ce.summary || "-"} </b><br>`;
+    message += `📅 ${ce.start?.date || "-"} ${ce.start?.time || ""}<br>`;
+    if (ce.end) {
+        message += `⏳ تا ${ce.end?.date || ""} ${ce.end?.time || ""}<br>`;
+    }
+    message += `📍 ${ce.location || "-"}<br>`;
+    if (ce.reminder) {
+        message += `⏰ Reminder: ${ce.reminder} min before<br>`;
+    }
+
+    document.getElementById('result').innerHTML = message;
 }
 
 // === DOMContentLoaded ===
 document.addEventListener('DOMContentLoaded', async () => {
     await fetchModels();
     await fetchPrompts();
-    await renderDynamicFields();
-    document.getElementById('promptSelect').onchange = renderDynamicFields;
 });
 
 // ---------- WebSpeech API ----------
