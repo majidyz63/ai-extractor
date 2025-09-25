@@ -394,6 +394,66 @@ def api_prompt_langs():
             available[lang] = fname
     return jsonify(available)
 
+# ... (بالای فایل app.py شما، ایمپورت‌ها دست نخورده بماند)
+
+# === Google Calendar Service Account ===
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+
+SERVICE_ACCOUNT_FILE = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "service_account.json")
+SCOPES = ["https://www.googleapis.com/auth/calendar"]
+
+def get_calendar_service():
+    creds = service_account.Credentials.from_service_account_file(
+        SERVICE_ACCOUNT_FILE, scopes=SCOPES
+    )
+    service = build("calendar", "v3", credentials=creds)
+    return service
+
+# === Add Event to Google Calendar ===
+@app.route("/api/add_event", methods=["POST"])
+def add_event():
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+
+        start = data.get("start")
+        end = data.get("end")
+        title = data.get("title", "Untitled Event")
+
+        if not start or not end:
+            return jsonify({"error": "Missing start or end datetime"}), 400
+
+        event = {
+            "summary": title,
+            "start": {"dateTime": start, "timeZone": "UTC"},
+            "end": {"dateTime": end, "timeZone": "UTC"}
+        }
+
+        service = get_calendar_service()
+        created = service.events().insert(calendarId="primary", body=event).execute()
+
+        print("✅ Event created:", created)
+        return jsonify({"id": created["id"], "htmlLink": created.get("htmlLink")})
+
+    except Exception as e:
+        print("🔥 Error in /api/add_event:", e)
+        import traceback; traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+# === Delete Event from Google Calendar ===
+@app.route("/api/delete_event/<event_id>", methods=["DELETE"])
+def delete_event(event_id):
+    try:
+        service = get_calendar_service()
+        service.events().delete(calendarId="primary", eventId=event_id).execute()
+        print(f"🗑️ Event {event_id} deleted from Google Calendar")
+        return jsonify({"status": "deleted", "id": event_id})
+    except Exception as e:
+        print("🔥 Error in /api/delete_event:", e)
+        import traceback; traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
 # ================ RUN APP ================
 if __name__ == "__main__":
