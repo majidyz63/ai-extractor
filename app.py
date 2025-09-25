@@ -27,6 +27,43 @@ PROMPT_MAP = {
     "fr-FR": "calendar_fr.yaml"
 }
 DEFAULT_PROMPT_FILE = "calendar_nl.yaml"  # پیش‌فرض هلندی
+# ============= GOOGLE CALENDAR (Service Account) =============
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+
+SCOPES = ["https://www.googleapis.com/auth/calendar"]
+SERVICE_ACCOUNT_FILE = "lucky-almanac-47xxxxxx.json"  # اسم JSON خودت
+
+try:
+    gcal_creds = service_account.Credentials.from_service_account_file(
+        SERVICE_ACCOUNT_FILE, scopes=SCOPES
+    )
+    gcal_service = build("calendar", "v3", credentials=gcal_creds)
+    print("✅ Google Calendar service initialized")
+except Exception as e:
+    print("❌ Google Calendar init failed:", e)
+    gcal_service = None
+
+
+@app.route("/api/add_event", methods=["POST"])
+def add_event():
+    if not gcal_service:
+        return jsonify({"error": "Google Calendar not initialized"}), 500
+
+    data = request.json
+    try:
+        event = {
+            "summary": data.get("title", "Untitled Event"),
+            "description": data.get("notes", ""),
+            "location": data.get("location", ""),
+            "start": {"dateTime": data["datetime"], "timeZone": "Europe/Brussels"},
+            "end": {"dateTime": data["datetime"], "timeZone": "Europe/Brussels"},
+        }
+        gcal_service.events().insert(calendarId="primary", body=event).execute()
+        return jsonify({"status": "ok", "event": event})
+    except Exception as e:
+        print("❌ Add Event Error:", e)
+        return jsonify({"error": str(e)}), 500
 
 # ============= MAIN EXTRACTOR ROUTES (دست نخورده) =============
 @app.route("/api/models")
@@ -393,67 +430,6 @@ def api_prompt_langs():
         if os.path.isfile(path):
             available[lang] = fname
     return jsonify(available)
-
-# ... (بالای فایل app.py شما، ایمپورت‌ها دست نخورده بماند)
-
-# === Google Calendar Service Account ===
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
-
-SERVICE_ACCOUNT_FILE = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "service_account.json")
-SCOPES = ["https://www.googleapis.com/auth/calendar"]
-
-def get_calendar_service():
-    creds = service_account.Credentials.from_service_account_file(
-        SERVICE_ACCOUNT_FILE, scopes=SCOPES
-    )
-    service = build("calendar", "v3", credentials=creds)
-    return service
-
-# === Add Event to Google Calendar ===
-@app.route("/api/add_event", methods=["POST"])
-def add_event():
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-
-        start = data.get("start")
-        end = data.get("end")
-        title = data.get("title", "Untitled Event")
-
-        if not start or not end:
-            return jsonify({"error": "Missing start or end datetime"}), 400
-
-        event = {
-            "summary": title,
-            "start": {"dateTime": start, "timeZone": "UTC"},
-            "end": {"dateTime": end, "timeZone": "UTC"}
-        }
-
-        service = get_calendar_service()
-        created = service.events().insert(calendarId="primary", body=event).execute()
-
-        print("✅ Event created:", created)
-        return jsonify({"id": created["id"], "htmlLink": created.get("htmlLink")})
-
-    except Exception as e:
-        print("🔥 Error in /api/add_event:", e)
-        import traceback; traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
-
-# === Delete Event from Google Calendar ===
-@app.route("/api/delete_event/<event_id>", methods=["DELETE"])
-def delete_event(event_id):
-    try:
-        service = get_calendar_service()
-        service.events().delete(calendarId="primary", eventId=event_id).execute()
-        print(f"🗑️ Event {event_id} deleted from Google Calendar")
-        return jsonify({"status": "deleted", "id": event_id})
-    except Exception as e:
-        print("🔥 Error in /api/delete_event:", e)
-        import traceback; traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
 
 # ================ RUN APP ================
 if __name__ == "__main__":
