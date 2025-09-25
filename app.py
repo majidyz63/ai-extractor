@@ -30,13 +30,15 @@ DEFAULT_PROMPT_FILE = "calendar_nl.yaml"  # پیش‌فرض هلندی
 # ============= GOOGLE CALENDAR (Service Account) =============
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+import json, os
 
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
-SERVICE_ACCOUNT_FILE = "lucky-almanac-47xxxxxx.json"  # اسم JSON خودت
 
 try:
-    gcal_creds = service_account.Credentials.from_service_account_file(
-        SERVICE_ACCOUNT_FILE, scopes=SCOPES
+    # Secret رو از Koyeb (GOOGLE_APPLICATION_CREDENTIALS_JSON) می‌خونیم
+    service_account_info = json.loads(os.environ["GOOGLE_APPLICATION_CREDENTIALS_JSON"])
+    gcal_creds = service_account.Credentials.from_service_account_info(
+        service_account_info, scopes=SCOPES
     )
     gcal_service = build("calendar", "v3", credentials=gcal_creds)
     print("✅ Google Calendar service initialized")
