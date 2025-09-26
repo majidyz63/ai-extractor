@@ -12,11 +12,8 @@ load_dotenv()
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))  # Whisper: فقط یکبار ساخته شود
 
 app = Flask(__name__)
-CORS(app, resources={
-    r"/*": {
-        "origins": "https://shared-deborah-neoprojects-65e1dc36.koyeb.app"
-    }
-})
+CORS(app)  # همه origin ها مجاز
+
 
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
