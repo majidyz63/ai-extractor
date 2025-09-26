@@ -429,6 +429,33 @@ def api_prompt_langs():
         if os.path.isfile(path):
             available[lang] = fname
     return jsonify(available)
+# === Voice → Event (Quick Add) ===
+@app.route("/api/voice_event", methods=["POST"])
+def voice_event():
+    try:
+        file = request.files.get("file")
+        lang = request.form.get("lang", "en-US")
+
+        if not file:
+            return jsonify({"error": "No file uploaded"}), 400
+
+        # ذخیره موقت فایل
+        filepath = os.path.join("uploads", file.filename)
+        file.save(filepath)
+
+        # 🎙️ اینجا می‌تونی Whisper/OpenAI یا Vosk رو صدا بزنی
+        # فعلاً برای تست یه رویداد فیک برمی‌گردونیم
+        event = {
+            "title": "Test Event",
+            "datetime": "2025-09-25T15:00:00",
+            "reminder": 15
+        }
+        return jsonify(event)
+
+    except Exception as e:
+        print("❌ Voice Event Error:", e)
+        return jsonify({"error": str(e)}), 500
+
 
 # ================ RUN APP ================
 if __name__ == "__main__":
