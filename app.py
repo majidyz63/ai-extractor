@@ -429,31 +429,86 @@ def api_prompt_langs():
         if os.path.isfile(path):
             available[lang] = fname
     return jsonify(available)
-# === Voice to Event ===
+# === VOICE EVENT ===
 @app.route("/api/voice_event", methods=["POST"])
 def voice_event():
     try:
-        file = request.files["file"]
-        lang = request.form.get("lang", "nl-NL")
+        print("📥 /api/voice_event called", flush=True)
 
-        # Whisper API → Speech-to-Text
+        if "file" not in request.files:
+            return jsonify({"error": "No audio file uploaded"}), 400
+
+        audio_file = request.files["file"]
+        lang = request.form.get("lang", "en-US")
+
+        print("📂 Received file:", audio_file.filename, "lang:", lang, flush=True)
+
+        # 🎙️ ارسال فایل به Whisper (OpenAI STT)
+        from openai import OpenAI
+        client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+
         transcript = client.audio.transcriptions.create(
-            model="whisper-1",
-            file=file,
-            response_format="text"
+            model="gpt-4o-mini-transcribe",  # یا whisper-1 اگر فعال باشه
+            file=audio_file
         )
 
-        text = transcript.strip()
-        return jsonify({
-            "title": "Quick Event",
-            "datetime": datetime.now().isoformat(),
-            "reminder": 0,
-            "notes": text
-        })
-    except Exception as e:
-        print("🔥 Error in /api/voice_event:", e)
-        return jsonify({"error": str(e)}), 500
+        text = transcript.text.strip()
+        print("📝 Transcribed text:", text, flush=True)
 
+        # 🔹 متن رو برای AI Extractor خودت می‌فرستیم
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        prompt = f"""
+Today is {today_str}.
+User input: "{text}"
+Extract event details as JSON with keys: title, date, time, location, notes, reminder.
+- Input may be in English, Persian (Farsi), or Dutch (Nederlands).
+- Convert relative dates into YYYY-MM-DD.
+- Convert times into HH:MM.
+- Reminder should be one of: "15m", "30m", "1h", "1d", or 0.
+Respond with JSON only.
+"""
+
+        import requests
+        resp = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {os.environ['OPENROUTER_API_KEY']}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": "mistralai/mistral-nemo",  # یا هر مدلی که تنظیم کردی
+                "messages": [{"role": "user", "content": prompt}]
+            }
+        )
+        raw = resp.json()
+        print("🤖 Raw Extractor Response:", raw, flush=True)
+
+        # پاکسازی خروجی مدل
+        content = raw["choices"][0]["message"]["content"]
+        if content.startswith("```"):
+            content = content.split("```")[1].replace("json", "").strip()
+
+        import json
+        parsed = json.loads(content)
+
+        # عادی‌سازی نتیجه
+        final_event = {
+            "title": parsed.get("title", "Untitled Event"),
+            "date": parsed.get("date"),
+            "time": parsed.get("time", "00:00"),
+            "location": parsed.get("location", ""),
+            "notes": parsed.get("notes", ""),
+            "reminder": parsed.get("reminder", 0),
+            "datetime": f"{parsed.get('date')}T{parsed.get('time', '00:00')}"
+        }
+
+        print("✅ Final Event:", final_event, flush=True)
+        return jsonify(final_event)
+
+    except Exception as e:
+        print("🔥 ERROR in /api/voice_event:", e, flush=True)
+        import traceback; traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
 # ================ RUN APP ================
 if __name__ == "__main__":
